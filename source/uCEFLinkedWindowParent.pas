@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFLinkedWindowParent;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -64,21 +62,24 @@ uses
   uCEFWinControl, uCEFTypes, uCEFInterfaces, uCEFChromium;
 
 type
+  {$IFNDEF FPC}{$IFDEF DELPHI16_UP}[ComponentPlatformsAttribute(pidWin32 or pidWin64)]{$ENDIF}{$ENDIF}
   TCEFLinkedWindowParent = class(TCEFWinControl)
     protected
-      FChromium : TChromium;
+      FChromium               : TChromium;
 
       procedure SetChromium(aValue : TChromium);
 
       function  GetChildWindowHandle : THandle; override;
+      {$IFDEF MSWINDOWS}
       procedure WndProc(var aMessage: TMessage); override;
+      {$ENDIF}
       procedure Notification(AComponent: TComponent; Operation: TOperation); override;
 
     public
       constructor Create(AOwner : TComponent); override;
 
     published
-      property Chromium : TChromium    read FChromium     write SetChromium;
+      property Chromium   : TChromium    read FChromium   write SetChromium;
   end;
 
 
@@ -108,6 +109,7 @@ begin
   if (Result = 0) then Result := inherited GetChildWindowHandle;
 end;
 
+{$IFDEF MSWINDOWS}
 procedure TCEFLinkedWindowParent.WndProc(var aMessage: TMessage);
 var
   TempHandle : THandle;
@@ -140,6 +142,7 @@ begin
     else inherited WndProc(aMessage);
   end;
 end;
+{$ENDIF}
 
 procedure TCEFLinkedWindowParent.Notification(AComponent: TComponent; Operation: TOperation);
 begin

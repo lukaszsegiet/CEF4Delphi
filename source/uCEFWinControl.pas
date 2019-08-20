@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFWinControl;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -68,12 +66,13 @@ type
       procedure Resize; override;
 
     public
-      function  TakeSnapshot(var aBitmap : TBitmap) : boolean;
-      function  DestroyChildWindow : boolean;
-      procedure CreateHandle; override;
-      procedure UpdateSize;
+      function    TakeSnapshot(var aBitmap : TBitmap) : boolean;
+      function    DestroyChildWindow : boolean;
+      procedure   CreateHandle; override;
+      procedure   InvalidateChildren;
+      procedure   UpdateSize;
 
-      property  ChildWindowHandle : THandle   read GetChildWindowHandle;
+      property  ChildWindowHandle : THandle  read GetChildWindowHandle;
 
     published
       property  Align;
@@ -100,15 +99,22 @@ uses
 
 function TCEFWinControl.GetChildWindowHandle : THandle;
 begin
+  {$IFDEF MSWINDOWS}
   if not(csDesigning in ComponentState) and HandleAllocated then
     Result := GetWindow(Handle, GW_CHILD)
    else
+  {$ENDIF}
     Result := 0;
 end;
 
 procedure TCEFWinControl.CreateHandle;
 begin
   inherited CreateHandle;
+end;
+
+procedure TCEFWinControl.InvalidateChildren;
+begin
+  if HandleAllocated then RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN);
 end;
 
 procedure TCEFWinControl.UpdateSize;
@@ -139,7 +145,7 @@ begin
 
   TempHWND := ChildWindowHandle;
   if (TempHWND = 0) then exit;
-
+  {$IFDEF MSWINDOWS}
   {$IFDEF DELPHI16_UP}Winapi.{$ENDIF}Windows.GetClientRect(TempHWND, TempRect);
   TempDC     := GetDC(TempHWND);
   TempWidth  := TempRect.Right  - TempRect.Left;
@@ -153,14 +159,17 @@ begin
                    TempDC, 0, 0, SRCCOPY);
 
   ReleaseDC(TempHWND, TempDC);
+  {$ENDIF}
 end;
 
 function TCEFWinControl.DestroyChildWindow : boolean;
 var
   TempHWND : HWND;
 begin
+  {$IFDEF MSWINDOWS}
   TempHWND := ChildWindowHandle;
   Result   := (TempHWND <> 0) and DestroyWindow(TempHWND);
+  {$ENDIF}
 end;
 
 procedure TCEFWinControl.Resize;

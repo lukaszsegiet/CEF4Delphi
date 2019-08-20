@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFWorkScheduler;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -64,6 +62,7 @@ uses
   uCEFConstants, uCEFWorkSchedulerThread;
 
 type
+  {$IFNDEF FPC}{$IFDEF DELPHI16_UP}[ComponentPlatformsAttribute(pidWin32 or pidWin64)]{$ENDIF}{$ENDIF}
   TCEFWorkScheduler = class(TComponent)
     protected
       FCompHandle         : HWND;
@@ -82,7 +81,9 @@ type
       procedure DestroyThread;
       procedure DeallocateWindowHandle;
       procedure DepleteWork;
+      {$IFDEF MSWINDOWS}
       procedure WndProc(var aMessage: TMessage);
+      {$ENDIF}
       procedure NextPulse(aInterval : integer);
       procedure ScheduleWork(const delay_ms : int64);
       procedure DoWork;
@@ -132,7 +133,7 @@ uses
   {$ELSE}
   SysUtils, Math,
   {$ENDIF}
-  uCEFMiscFunctions, uCEFApplication;
+  uCEFMiscFunctions, uCEFApplication, uCEFTypes;
 
 procedure DestroyGlobalCEFWorkScheduler;
 begin
@@ -174,11 +175,17 @@ begin
 
   if not(csDesigning in ComponentState) then
     begin
-      {$IFDEF FPC}
-      TempWndMethod    := @WndProc;
-      FCompHandle      := AllocateHWnd(TempWndMethod);
-      {$ELSE}
-      FCompHandle      := AllocateHWnd(WndProc);
+      {$IFDEF MSWINDOWS}
+      if (GlobalCEFApp <> nil) and
+         ((GlobalCEFApp.ProcessType = ptBrowser) or GlobalCEFApp.SingleProcess) then
+        begin
+          {$IFDEF FPC}
+          TempWndMethod    := @WndProc;
+          FCompHandle      := AllocateHWnd(TempWndMethod);
+          {$ELSE}
+          FCompHandle      := AllocateHWnd(WndProc);
+          {$ENDIF}
+        end;
       {$ENDIF}
 
       CreateThread;
@@ -216,6 +223,7 @@ begin
   end;
 end;
 
+{$IFDEF MSWINDOWS}
 procedure TCEFWorkScheduler.WndProc(var aMessage: TMessage);
 begin
   if (aMessage.Msg = CEF_PUMPHAVEWORK) then
@@ -223,6 +231,7 @@ begin
    else
     aMessage.Result := DefWindowProc(FCompHandle, aMessage.Msg, aMessage.WParam, aMessage.LParam);
 end;
+{$ENDIF}
 
 procedure TCEFWorkScheduler.DeallocateWindowHandle;
 begin
@@ -270,8 +279,10 @@ end;
 
 procedure TCEFWorkScheduler.ScheduleMessagePumpWork(const delay_ms : int64);
 begin
+  {$IFDEF MSWINDOWS}
   if not(FStopped) and (FCompHandle <> 0) then
     PostMessage(FCompHandle, CEF_PUMPHAVEWORK, 0, LPARAM(delay_ms));
+  {$ENDIF}
 end;
 
 procedure TCEFWorkScheduler.StopScheduler;

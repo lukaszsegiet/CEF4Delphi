@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFDomVisitor;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -76,11 +74,12 @@ type
     protected
       FProc    : TCefDomVisitorProc2;
       FBrowser : ICefBrowser;
+      FFrame   : ICefFrame;
 
       procedure visit(const document: ICefDomDocument); override;
 
     public
-      constructor Create(const browser: ICefBrowser; const proc: TCefDomVisitorProc2); reintroduce; virtual;
+      constructor Create(const browser: ICefBrowser; const frame: ICefFrame; const proc: TCefDomVisitorProc2); reintroduce; virtual;
       destructor  Destroy; override;
   end;
 
@@ -130,24 +129,26 @@ end;
 
 // TCefFastDomVisitor2
 
-constructor TCefFastDomVisitor2.Create(const browser: ICefBrowser; const proc: TCefDomVisitorProc2);
+constructor TCefFastDomVisitor2.Create(const browser: ICefBrowser; const frame: ICefFrame; const proc: TCefDomVisitorProc2);
 begin
   inherited Create;
 
   FBrowser := browser;
+  FFrame   := frame;
   FProc    := proc;
 end;
 
 destructor TCefFastDomVisitor2.Destroy;
 begin
   FBrowser := nil;
+  FFrame   := nil;
 
   inherited Destroy;
 end;
 
 procedure TCefFastDomVisitor2.visit(const document: ICefDomDocument);
 begin
-  FProc(FBrowser, document);
+  FProc(FBrowser, FFrame, document);
 end;
 
 end.

@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFChromiumWindow;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -64,23 +62,25 @@ uses
   uCEFWindowParent, uCEFChromium, uCEFInterfaces, uCEFConstants, uCEFTypes, uCEFWinControl;
 
 type
+  {$IFNDEF FPC}{$IFDEF DELPHI16_UP}[ComponentPlatformsAttribute(pidWin32 or pidWin64)]{$ENDIF}{$ENDIF}
   TChromiumWindow = class(TCEFWinControl)
     protected
       FChromium       : TChromium;
       FOnClose        : TNotifyEvent;
       FOnBeforeClose  : TNotifyEvent;
       FOnAfterCreated : TNotifyEvent;
+      FUseSetFocus    : boolean;
 
       function    GetBrowserInitialized : boolean;
+      {$IFDEF MSWINDOWS}
       function    GetChildWindowHandle : THandle; override;
 
       procedure   WndProc(var aMessage: TMessage); override;
 
       procedure   OnCloseMsg(var aMessage : TMessage); message CEF_DOONCLOSE;
-      procedure   OnBeforeCloseMsg(var aMessage : TMessage); message CEF_DOONBEFORECLOSE;
       procedure   OnAfterCreatedMsg(var aMessage : TMessage); message CEF_AFTERCREATED;
-
-      procedure   WebBrowser_OnClose(Sender: TObject; const browser: ICefBrowser; out Result: Boolean);
+      {$ENDIF}
+      procedure   WebBrowser_OnClose(Sender: TObject; const browser: ICefBrowser; var aAction : TCefCloseBrowserAction);
       procedure   WebBrowser_OnBeforeClose(Sender: TObject; const browser: ICefBrowser);
       procedure   WebBrowser_OnAfterCreated(Sender: TObject; const browser: ICefBrowser);
 
@@ -96,6 +96,7 @@ type
       property Initialized        : boolean         read GetBrowserInitialized;
 
     published
+      property UseSetFocus      : boolean         read FUseSetFocus      write FUseSetFocus default True;
       property OnClose          : TNotifyEvent    read FOnClose          write FOnClose;
       property OnBeforeClose    : TNotifyEvent    read FOnBeforeClose    write FOnBeforeClose;
       property OnAfterCreated   : TNotifyEvent    read FOnAfterCreated   write FOnAfterCreated;
@@ -122,6 +123,7 @@ begin
   FOnClose        := nil;
   FOnBeforeClose  := nil;
   FOnAfterCreated := nil;
+  FUseSetFocus    := True;
 end;
 
 procedure TChromiumWindow.AfterConstruction;
@@ -137,6 +139,7 @@ begin
     end;
 end;
 
+{$IFDEF MSWINDOWS}
 function TChromiumWindow.GetChildWindowHandle : THandle;
 begin
   Result := 0;
@@ -153,7 +156,7 @@ begin
   case aMessage.Msg of
     WM_SETFOCUS:
       begin
-        if (FChromium <> nil) then
+        if FUseSetFocus and (FChromium <> nil) then
           FChromium.SetFocus(True)
          else
           begin
@@ -178,41 +181,41 @@ begin
     else inherited WndProc(aMessage);
   end;
 end;
+{$ENDIF}
 
 function TChromiumWindow.GetBrowserInitialized : boolean;
 begin
   Result := (FChromium <> nil) and FChromium.Initialized;
 end;
 
-procedure TChromiumWindow.WebBrowser_OnClose(Sender: TObject; const browser: ICefBrowser; out Result: Boolean);
+procedure TChromiumWindow.WebBrowser_OnClose(Sender: TObject; const browser: ICefBrowser; var aAction : TCefCloseBrowserAction);
 begin
+  aAction := cbaClose;
+  {$IFDEF MSWINDOWS}
   if assigned(FOnClose) then
     begin
       PostMessage(Handle, CEF_DOONCLOSE, 0, 0);
-      Result := True;
-    end
-   else
-    Result := False;
+      aAction := cbaDelay;
+    end;
+  {$ENDIF}
 end;
 
 procedure TChromiumWindow.WebBrowser_OnBeforeClose(Sender: TObject; const browser: ICefBrowser);
 begin
-  if assigned(FOnBeforeClose) then PostMessage(Handle, CEF_DOONBEFORECLOSE, 0, 0);
+  if assigned(FOnBeforeClose) then FOnBeforeClose(self);
 end;
 
 procedure TChromiumWindow.WebBrowser_OnAfterCreated(Sender: TObject; const browser: ICefBrowser);
 begin
+  {$IFDEF MSWINDOWS}
   PostMessage(Handle, CEF_AFTERCREATED, 0, 0);
+  {$ENDIF}
 end;
 
+{$IFDEF MSWINDOWS}
 procedure TChromiumWindow.OnCloseMsg(var aMessage : TMessage);
 begin
   if assigned(FOnClose) then FOnClose(self);
-end;
-
-procedure TChromiumWindow.OnBeforeCloseMsg(var aMessage : TMessage);
-begin
-  if assigned(FOnBeforeClose) then FOnBeforeClose(self);
 end;
 
 procedure TChromiumWindow.OnAfterCreatedMsg(var aMessage : TMessage);
@@ -220,6 +223,7 @@ begin
   UpdateSize;
   if assigned(FOnAfterCreated) then FOnAfterCreated(self);
 end;
+{$ENDIF}
 
 function TChromiumWindow.CreateBrowser : boolean;
 begin

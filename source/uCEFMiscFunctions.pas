@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFMiscFunctions;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -55,9 +53,10 @@ uses
     {$IFDEF MSWINDOWS}WinApi.Windows, WinApi.ActiveX,{$ENDIF} System.IOUtils, System.Classes, System.SysUtils, System.UITypes, System.Math,
   {$ELSE}
     {$IFDEF MSWINDOWS}Windows, ActiveX,{$ENDIF} {$IFDEF DELPHI14_UP}IOUtils,{$ENDIF} Classes, SysUtils, Controls, Graphics, Math,
+    {$IFDEF FPC}LCLType,{$IFNDEF MSWINDOWS}InterfaceBase, Forms,{$ENDIF}{$ENDIF}
   {$ENDIF}
   uCEFTypes, uCEFInterfaces, uCEFLibFunctions, uCEFResourceHandler,
-  uCEFRegisterCDMCallback;
+  uCEFRegisterCDMCallback, uCEFConstants;
 
 const
   Kernel32DLL = 'kernel32.dll';
@@ -103,9 +102,9 @@ function cef_string_utf16_copy(const src: PChar16; src_len: NativeUInt; output: 
 function cef_string_copy(const src: PCefChar; src_len: NativeUInt; output: PCefString): Integer;
 
 {$IFDEF MSWINDOWS}
-procedure WindowInfoAsChild(var aWindowInfo : TCefWindowInfo; aParent : THandle; aRect : TRect; const aWindowName : ustring = '');
-procedure WindowInfoAsPopUp(var aWindowInfo : TCefWindowInfo; aParent : THandle; const aWindowName : ustring = '');
-procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : THandle; const aWindowName : ustring = '');
+procedure WindowInfoAsChild(var aWindowInfo : TCefWindowInfo; aParent : THandle; aRect : TRect; const aWindowName : ustring = ''; aExStyle : cardinal = 0);
+procedure WindowInfoAsPopUp(var aWindowInfo : TCefWindowInfo; aParent : THandle; const aWindowName : ustring = ''; aExStyle : cardinal = 0);
+procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : THandle; const aWindowName : ustring = ''; aExStyle : cardinal = 0);
 {$ENDIF}
 
 {$IFDEF MACOS}
@@ -115,9 +114,9 @@ procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : TCe
 {$ENDIF}
 
 {$IFDEF LINUX}
-procedure WindowInfoAsChild(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle; aRect : TRect);
-procedure WindowInfoAsPopUp(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle);
-procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle);
+procedure WindowInfoAsChild(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle; aRect : TRect; const aWindowName : ustring = '');
+procedure WindowInfoAsPopUp(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle; const aWindowName : ustring = '');
+procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle; const aWindowName : ustring = '');
 {$ENDIF}
 
 {$IFDEF MSWINDOWS}
@@ -127,6 +126,7 @@ function SystemTimeToTzSpecificLocalTime(lpTimeZoneInformation: PTimeZoneInforma
 
 function PathIsRelativeAnsi(pszPath: LPCSTR): BOOL; stdcall; external SHLWAPIDLL name 'PathIsRelativeA';
 function PathIsRelativeUnicode(pszPath: LPCWSTR): BOOL; stdcall; external SHLWAPIDLL name 'PathIsRelativeW';
+function GetGlobalMemoryStatusEx(var Buffer: TMyMemoryStatusEx): BOOL; stdcall; external Kernel32DLL name 'GlobalMemoryStatusEx';
 
 {$IFNDEF DELPHI12_UP}
   {$IFDEF WIN64}
@@ -148,7 +148,7 @@ function  CefCrashReportingEnabled : boolean;
 procedure CefSetCrashKeyValue(const aKey, aValue : ustring);
 
 procedure CefLog(const aFile : string; aLine, aSeverity : integer; const aMessage : string);
-procedure CefDebugLog(const aMessage : string);
+procedure CefDebugLog(const aMessage : string; aSeverity : integer = CEF_LOG_SEVERITY_ERROR);
 procedure OutputDebugMessage(const aMessage : string);
 function  CustomExceptionHandler(const aFunctionName : string; const aException : exception) : boolean;
 
@@ -160,19 +160,24 @@ function CefRemoveCrossOriginWhitelistEntry(const SourceOrigin, TargetProtocol, 
 function CefClearCrossOriginWhitelist: Boolean;
 
 procedure UInt64ToFileVersionInfo(const aVersion : uint64; var aVersionInfo : TFileVersionInfo);
+{$IFDEF MSWINDOWS}
 function  GetExtendedFileVersion(const aFileName : string) : uint64;
 function  GetStringFileInfo(const aFileName, aField : string; var aValue : string) : boolean;
 function  GetDLLVersion(const aDLLFile : string; var aVersionInfo : TFileVersionInfo) : boolean;
+{$ENDIF}
 
 function SplitLongString(aSrcString : string) : string;
 function GetAbsoluteDirPath(const aSrcPath : string; var aRsltPath : string) : boolean;
+function CheckSubprocessPath(const aSubprocessPath : string; var aMissingFiles : string) : boolean;
 function CheckLocales(const aLocalesDirPath : string; var aMissingFiles : string; const aLocalesRequired : string = '') : boolean;
 function CheckResources(const aResourcesDirPath : string; var aMissingFiles : string; aCheckDevResources: boolean = True; aCheckExtensions: boolean = True) : boolean;
 function CheckDLLs(const aFrameworkDirPath : string; var aMissingFiles : string) : boolean;
-function CheckDLLVersion(const aDLLFile : string; aMajor, aMinor, aRelease, aBuild : uint16) : boolean;
+{$IFDEF MSWINDOWS}
+function CheckDLLVersion(const aDLLFile : string; aMajor, aMinor, aRelease, aBuild : uint16) : boolean;   
+function GetDLLHeaderMachine(const aDLLFile : string; var aMachine : integer) : boolean;
+{$ENDIF}
 function FileVersionInfoToString(const aVersionInfo : TFileVersionInfo) : string;
 function CheckFilesExist(var aList : TStringList; var aMissingFiles : string) : boolean;
-function GetDLLHeaderMachine(const aDLLFile : string; var aMachine : integer) : boolean;
 function Is32BitProcess : boolean;
 
 function  CefParseUrl(const url: ustring; var parts: TUrlParts): Boolean;
@@ -202,15 +207,17 @@ function CefDeleteFile(const path: ustring; recursive: Boolean): Boolean;
 function CefZipDirectory(const srcDir, destFile: ustring; includeHiddenFiles: Boolean): Boolean;
 procedure CefLoadCRLSetsFile(const path : ustring);
 
+{$IFDEF MSWINDOWS}
 function CefIsKeyDown(aWparam : WPARAM) : boolean;
 function CefIsKeyToggled(aWparam : WPARAM) : boolean;
+function GetCefMouseModifiers : TCefEventFlags; overload;                                
 function GetCefMouseModifiers(awparam : WPARAM) : TCefEventFlags; overload;
-function GetCefMouseModifiers : TCefEventFlags; overload;
-function GetCefKeyboardModifiers(aWparam : WPARAM; aLparam : LPARAM) : TCefEventFlags;
+function GetCefKeyboardModifiers(aWparam : WPARAM; aLparam : LPARAM) : TCefEventFlags;  
 function GefCursorToWindowsCursor(aCefCursor : TCefCursorType) : TCursor;
 
 procedure DropEffectToDragOperation(aEffect : Longint; var aAllowedOps : TCefDragOperations);
 procedure DragOperationToDropEffect(const aDragOperations : TCefDragOperations; var aEffect: Longint);
+{$ENDIF}
 
 function  DeviceToLogical(aValue : integer; const aDeviceScaleFactor : double) : integer; overload;
 procedure DeviceToLogical(var aEvent : TCEFMouseEvent; const aDeviceScaleFactor : double); overload;
@@ -221,12 +228,14 @@ procedure LogicalToDevice(var aRect : TCEFRect; const aDeviceScaleFactor : doubl
 function GetScreenDPI : integer;
 function GetDeviceScaleFactor : single;
 
-function DeleteDirContents(const aDirectory : string) : boolean;
+function DeleteDirContents(const aDirectory : string; const aExcludeFiles : TStringList = nil) : boolean;
+function DeleteFileList(const aFileList : TStringList) : boolean;
+function MoveFileList(const aFileList : TStringList; const aSrcDirectory, aDstDirectory : string) : boolean;
 
 implementation
 
 uses
-  uCEFConstants, uCEFApplication, uCEFSchemeHandlerFactory, uCEFValue,
+  uCEFApplication, uCEFSchemeHandlerFactory, uCEFValue,
   uCEFBinaryValue, uCEFStringList;
 
 function CefColorGetA(color: TCefColor): Byte;
@@ -394,6 +403,7 @@ end;
 
 function CefTimeToSystemTime(const dt: TCefTime): TSystemTime;
 begin
+  {$IFDEF MSWINDOWS}
   Result.wYear          := dt.year;
   Result.wMonth         := dt.month;
   Result.wDayOfWeek     := dt.day_of_week;
@@ -402,10 +412,21 @@ begin
   Result.wMinute        := dt.minute;
   Result.wSecond        := dt.second;
   Result.wMilliseconds  := dt.millisecond;
+  {$ELSE}
+  Result.Year          := dt.year;
+  Result.Month         := dt.month;
+  Result.DayOfWeek     := dt.day_of_week;
+  Result.Day           := dt.day_of_month;
+  Result.Hour          := dt.hour;
+  Result.Minute        := dt.minute;
+  Result.Second        := dt.second;
+  Result.Millisecond   := dt.millisecond;
+  {$ENDIF}
 end;
 
 function SystemTimeToCefTime(const dt: TSystemTime): TCefTime;
 begin
+  {$IFDEF MSWINDOWS}
   Result.year         := dt.wYear;
   Result.month        := dt.wMonth;
   Result.day_of_week  := dt.wDayOfWeek;
@@ -414,12 +435,25 @@ begin
   Result.minute       := dt.wMinute;
   Result.second       := dt.wSecond;
   Result.millisecond  := dt.wMilliseconds;
+  {$ELSE}
+  Result.year         := dt.Year;
+  Result.month        := dt.Month;
+  Result.day_of_week  := dt.DayOfWeek;
+  Result.day_of_month := dt.Day;
+  Result.hour         := dt.Hour;
+  Result.minute       := dt.Minute;
+  Result.second       := dt.Second;
+  Result.millisecond  := dt.Millisecond;
+  {$ENDIF}
 end;
 
 function CefTimeToDateTime(const dt: TCefTime): TDateTime;
+{$IFDEF MSWINDOWS}
 var
   TempTime : TSystemTime;
+{$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   Result := 0;
 
   try
@@ -430,12 +464,20 @@ begin
     on e : exception do
       if CustomExceptionHandler('CefTimeToDateTime', e) then raise;
   end;
+  {$ELSE}
+  Result := EncodeDate(dt.year, dt.month, dt.day_of_month) + EncodeTime(dt.hour, dt.minute, dt.second, dt.millisecond);
+  {$ENDIF}
 end;
 
 function DateTimeToCefTime(dt: TDateTime): TCefTime;
 var
+  {$IFDEF MSWINDOWS}
   TempTime : TSystemTime;
+  {$ELSE}
+  TempYear, TempMonth, TempDay, TempHour, TempMin, TempSec, TempMSec : Word;
+  {$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   FillChar(Result, SizeOf(TCefTime), 0);
 
   try
@@ -446,6 +488,19 @@ begin
     on e : exception do
       if CustomExceptionHandler('DateTimeToCefTime', e) then raise;
   end;
+  {$ELSE}
+  DecodeDate(dt, TempYear, TempMonth, TempDay);
+  DecodeTime(dt, TempHour, TempMin, TempSec, TempMSec);
+
+  Result.year         := TempYear;
+  Result.month        := TempMonth;
+  Result.day_of_week  := DayOfWeek(dt);
+  Result.day_of_month := TempMonth;
+  Result.hour         := TempHour;
+  Result.minute       := TempMin;
+  Result.second       := TempSec;
+  Result.millisecond  := TempMSec;
+  {$ENDIF}
 end;
 
 function cef_string_wide_copy(const src: PWideChar; src_len: NativeUInt;  output: PCefStringWide): Integer;
@@ -481,9 +536,9 @@ begin
 end;
 
 {$IFDEF MSWINDOWS}
-procedure WindowInfoAsChild(var aWindowInfo : TCefWindowInfo; aParent : THandle; aRect : TRect; const aWindowName : ustring);
+procedure WindowInfoAsChild(var aWindowInfo : TCefWindowInfo; aParent : THandle; aRect : TRect; const aWindowName : ustring; aExStyle : cardinal);
 begin
-  aWindowInfo.ex_style                     := 0;
+  aWindowInfo.ex_style                     := aExStyle;
   aWindowInfo.window_name                  := CefString(aWindowName);
   aWindowInfo.style                        := WS_CHILD or WS_VISIBLE or WS_CLIPCHILDREN or WS_CLIPSIBLINGS or WS_TABSTOP;
   aWindowInfo.x                            := aRect.left;
@@ -493,12 +548,14 @@ begin
   aWindowInfo.parent_window                := aParent;
   aWindowInfo.menu                         := 0;
   aWindowInfo.windowless_rendering_enabled := ord(False);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
   aWindowInfo.window                       := 0;
 end;
 
-procedure WindowInfoAsPopUp(var aWindowInfo : TCefWindowInfo; aParent : THandle; const aWindowName : ustring);
+procedure WindowInfoAsPopUp(var aWindowInfo : TCefWindowInfo; aParent : THandle; const aWindowName : ustring; aExStyle : cardinal);
 begin
-  aWindowInfo.ex_style                     := 0;
+  aWindowInfo.ex_style                     := aExStyle;
   aWindowInfo.window_name                  := CefString(aWindowName);
   aWindowInfo.style                        := WS_OVERLAPPEDWINDOW or WS_CLIPCHILDREN or WS_CLIPSIBLINGS or WS_VISIBLE;
   aWindowInfo.x                            := integer(CW_USEDEFAULT);
@@ -508,12 +565,14 @@ begin
   aWindowInfo.parent_window                := aParent;
   aWindowInfo.menu                         := 0;
   aWindowInfo.windowless_rendering_enabled := ord(False);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
   aWindowInfo.window                       := 0;
 end;
 
-procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : THandle; const aWindowName : ustring);
+procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : THandle; const aWindowName : ustring; aExStyle : cardinal);
 begin
-  aWindowInfo.ex_style                     := 0;
+  aWindowInfo.ex_style                     := aExStyle;
   aWindowInfo.window_name                  := CefString(aWindowName);
   aWindowInfo.style                        := 0;
   aWindowInfo.x                            := 0;
@@ -523,6 +582,8 @@ begin
   aWindowInfo.parent_window                := aParent;
   aWindowInfo.menu                         := 0;
   aWindowInfo.windowless_rendering_enabled := ord(True);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
   aWindowInfo.window                       := 0;
 end;
 {$ENDIF}
@@ -538,6 +599,8 @@ begin
   aWindowInfo.hidden                       := Ord(aHidden);
   aWindowInfo.parent_view                  := aParent;
   aWindowInfo.windowless_rendering_enabled := ord(False);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
   aWindowInfo.view                         := 0;
 end;
 
@@ -551,6 +614,8 @@ begin
   aWindowInfo.hidden                       := Ord(aHidden);
   aWindowInfo.parent_view                  := aParent;
   aWindowInfo.windowless_rendering_enabled := ord(False);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
   aWindowInfo.view                         := 0;
 end;
 
@@ -565,41 +630,52 @@ begin
   aWindowInfo.hidden                       := Ord(aHidden);
   aWindowInfo.parent_view                  := aParent;
   aWindowInfo.windowless_rendering_enabled := ord(True);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
   aWindowInfo.view                         := 0;
 end;
 {$ENDIF}
 
 {$IFDEF LINUX}
-procedure WindowInfoAsChild(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle; aRect : TRect);
+procedure WindowInfoAsChild(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle; aRect : TRect; const aWindowName : ustring = '');
 begin
+  aWindowInfo.window_name                  := CefString(aWindowName);
   aWindowInfo.x                            := aRect.left;
   aWindowInfo.y                            := aRect.top;
   aWindowInfo.width                        := aRect.right  - aRect.left;
   aWindowInfo.height                       := aRect.bottom - aRect.top;
   aWindowInfo.parent_window                := aParent;
   aWindowInfo.windowless_rendering_enabled := ord(False);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
   aWindowInfo.window                       := 0;
 end;
 
-procedure WindowInfoAsPopUp(var aWindowInfo : TCefWindowInfo; aParent : THandle);
+procedure WindowInfoAsPopUp(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle; const aWindowName : ustring = '');
 begin
-  aWindowInfo.x                            := integer(CW_USEDEFAULT);
-  aWindowInfo.y                            := integer(CW_USEDEFAULT);
-  aWindowInfo.width                        := integer(CW_USEDEFAULT);
-  aWindowInfo.height                       := integer(CW_USEDEFAULT);
-  aWindowInfo.parent_window                := aParent;
-  aWindowInfo.windowless_rendering_enabled := ord(False);
-  aWindowInfo.window                       := 0;
-end;
-
-procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : THandle);
-begin
+  aWindowInfo.window_name                  := CefString(aWindowName);
   aWindowInfo.x                            := 0;
   aWindowInfo.y                            := 0;
   aWindowInfo.width                        := 0;
   aWindowInfo.height                       := 0;
   aWindowInfo.parent_window                := aParent;
   aWindowInfo.windowless_rendering_enabled := ord(False);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
+  aWindowInfo.window                       := 0;
+end;
+
+procedure WindowInfoAsWindowless(var aWindowInfo : TCefWindowInfo; aParent : TCefWindowHandle; const aWindowName : ustring = '');
+begin
+  aWindowInfo.window_name                  := CefString(aWindowName);
+  aWindowInfo.x                            := 0;
+  aWindowInfo.y                            := 0;
+  aWindowInfo.width                        := 0;
+  aWindowInfo.height                       := 0;
+  aWindowInfo.parent_window                := aParent;
+  aWindowInfo.windowless_rendering_enabled := ord(False);
+  aWindowInfo.shared_texture_enabled       := ord(False);
+  aWindowInfo.external_begin_frame_enabled := ord(False);
   aWindowInfo.window                       := 0;
 end;
 {$ENDIF}
@@ -650,7 +726,7 @@ begin
     end;
 end;
 
-procedure CefDebugLog(const aMessage : string);
+procedure CefDebugLog(const aMessage : string; aSeverity : integer);
 const
   DEFAULT_LINE = 1;
 var
@@ -658,7 +734,11 @@ var
 begin
   if (GlobalCEFApp <> nil) and GlobalCEFApp.LibLoaded then
     begin
+      {$IFDEF MSWINDOWS}
       TempString := 'PID: ' + IntToStr(GetCurrentProcessID) + ', TID: ' + IntToStr(GetCurrentThreadID);
+      {$ELSE}
+      TempString := 'PID: ' + IntToStr(GetProcessID()) + ', TID: ' + IntToStr(GetCurrentThreadID());
+      {$ENDIF}
 
       case GlobalCEFApp.ProcessType of
         ptBrowser   : TempString := TempString + ', PT: Browser';
@@ -668,7 +748,7 @@ begin
         else          TempString := TempString + ', PT: Other';
       end;
 
-      CefLog('CEF4Delphi', DEFAULT_LINE, CEF_LOG_SEVERITY_ERROR, TempString + ' - ' + aMessage);
+      CefLog('CEF4Delphi', DEFAULT_LINE, aSeverity, TempString + ' - ' + aMessage);
     end;
 end;
 
@@ -945,6 +1025,21 @@ begin
   end;
 end;
 
+function CheckSubprocessPath(const aSubprocessPath : string; var aMissingFiles : string) : boolean;
+begin
+  Result := False;
+
+  try
+    if (length(aSubprocessPath) = 0) or FileExists(aSubprocessPath) then
+      Result := True
+     else
+      aMissingFiles := trim(aMissingFiles) + CRLF + ExtractFileName(aSubprocessPath);
+  except
+    on e : exception do
+      if CustomExceptionHandler('CheckSubprocessPath', e) then raise;
+  end;
+end;
+
 function CheckDLLs(const aFrameworkDirPath : string; var aMissingFiles : string) : boolean;
 var
   TempDir    : string;
@@ -964,7 +1059,6 @@ begin
       TempList := TStringList.Create;
       TempList.Add(TempDir + CHROMEELF_DLL);
       TempList.Add(TempDir + LIBCEF_DLL);
-      TempList.Add(TempDir + 'd3dcompiler_43.dll');
       TempList.Add(TempDir + 'd3dcompiler_47.dll');
       TempList.Add(TempDir + 'libEGL.dll');
       TempList.Add(TempDir + 'libGLESv2.dll');
@@ -1021,6 +1115,7 @@ begin
   aVersionInfo.Build    := uint16(aVersion and $FFFF);
 end;
 
+{$IFDEF MSWINDOWS}
 function GetExtendedFileVersion(const aFileName : string) : uint64;
 var
   TempSize   : DWORD;
@@ -1164,7 +1259,8 @@ begin
     on e : exception do
       if CustomExceptionHandler('GetDLLVersion', e) then raise;
   end;
-end;
+end;      
+{$ENDIF}
 
 function FileVersionInfoToString(const aVersionInfo : TFileVersionInfo) : string;
 begin
@@ -1174,6 +1270,7 @@ begin
             IntToStr(aVersionInfo.Build);
 end;
 
+{$IFDEF MSWINDOWS}
 function CheckDLLVersion(const aDLLFile : string; aMajor, aMinor, aRelease, aBuild : uint16) : boolean;
 var
   TempVersionInfo : TFileVersionInfo;
@@ -1225,7 +1322,8 @@ begin
   finally
     if (TempStream <> nil) then FreeAndNil(TempStream);
   end;
-end;
+end;   
+{$ENDIF}
 
 function Is32BitProcess : boolean;
 {$IFDEF MSWINDOWS}
@@ -1303,7 +1401,7 @@ begin
     exit;
   {$ENDIF}
 
-  {$IFDEF DELPHI16_UP}
+  {$IFDEF DELPHI17_UP}
     Result := TOSVersion.Architecture in [arIntelX86, arARM32];
   {$ELSE}
     Result := False;
@@ -1315,7 +1413,11 @@ begin
   {$IFDEF DELPHI12_UP}
   Result := PathIsRelativeUnicode(PChar(aPath));
   {$ELSE}
-  Result := PathIsRelativeAnsi(PChar(aPath));
+    {$IFDEF MSWINDOWS}
+    Result := PathIsRelativeAnsi(PChar(aPath));
+    {$ELSE}
+    Result := (length(aPath) > 0) and (aPath[1] <> '/');
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -1620,6 +1722,7 @@ begin
     end;
 end;
 
+{$IFDEF MSWINDOWS}
 function CefIsKeyDown(aWparam : WPARAM) : boolean;
 begin
   Result := (GetKeyState(aWparam) < 0);
@@ -1766,7 +1869,7 @@ begin
 
     else Result := crDefault;
   end;
-end;
+end;  
 
 procedure DropEffectToDragOperation(aEffect: Longint; var aAllowedOps : TCefDragOperations);
 begin
@@ -1784,7 +1887,8 @@ begin
   if ((aDragOperations and DRAG_OPERATION_COPY) <> 0) then aEffect := aEffect or DROPEFFECT_COPY;
   if ((aDragOperations and DRAG_OPERATION_LINK) <> 0) then aEffect := aEffect or DROPEFFECT_LINK;
   if ((aDragOperations and DRAG_OPERATION_MOVE) <> 0) then aEffect := aEffect or DROPEFFECT_MOVE;
-end;
+end;    
+{$ENDIF}
 
 function DeviceToLogical(aValue : integer; const aDeviceScaleFactor : double) : integer;
 begin
@@ -1817,12 +1921,18 @@ begin
 end;
 
 function GetScreenDPI : integer;
+{$IFDEF MSWINDOWS}
 var
   TempDC : HDC;
+{$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   TempDC := GetDC(0);
   Result := GetDeviceCaps(TempDC, LOGPIXELSX);
   ReleaseDC(0, TempDC);
+  {$ELSE}
+  Result := screen.PrimaryMonitor.PixelsPerInch;
+  {$ENDIF}
 end;
 
 function GetDeviceScaleFactor : single;
@@ -1830,10 +1940,11 @@ begin
   Result := GetScreenDPI / 96;
 end;
 
-function DeleteDirContents(const aDirectory : string) : boolean;
+function DeleteDirContents(const aDirectory : string; const aExcludeFiles : TStringList) : boolean;
 var
   TempRec  : TSearchRec;
   TempPath : string;
+  TempIdx  : integer;
 begin
   Result := True;
 
@@ -1849,14 +1960,23 @@ begin
             begin
               if (TempRec.Name <> '.') and (TempRec.Name <> '..') then
                 begin
-                  if DeleteDirContents(TempPath) then
+                  if DeleteDirContents(TempPath, aExcludeFiles) then
                     Result := RemoveDir(TempPath) and Result
                    else
                     Result := False;
                 end;
             end
            else
-            Result := DeleteFile(TempPath) and Result;
+            if (aExcludeFiles <> nil) then
+              begin
+                TempIdx := aExcludeFiles.IndexOf(TempRec.Name);
+                Result  := ((TempIdx >= 0) or
+                            ((TempIdx < 0) and DeleteFile(TempPath))) and
+                           Result;
+              end
+             else
+              Result := DeleteFile(TempPath) and Result;
+
         until (FindNext(TempRec) <> 0) or not(Result);
       finally
         FindClose(TempRec);
@@ -1864,6 +1984,67 @@ begin
   except
     on e : exception do
       if CustomExceptionHandler('DeleteDirContents', e) then raise;
+  end;
+end;
+
+function DeleteFileList(const aFileList : TStringList) : boolean;
+var
+  i, TempCount : integer;
+begin
+  Result := False;
+
+  try
+    if (aFileList <> nil) then
+      begin
+        i         := 0;
+        TempCount := 0;
+
+        while (i < aFileList.Count) do
+          begin
+            if FileExists(aFileList[i]) and DeleteFile(aFileList[i]) then inc(TempCount);
+            inc(i);
+          end;
+
+        Result := (aFileList.Count = TempCount);
+      end;
+  except
+    on e : exception do
+      if CustomExceptionHandler('DeleteFileList', e) then raise;
+  end;
+end;
+
+function MoveFileList(const aFileList : TStringList; const aSrcDirectory, aDstDirectory : string) : boolean;
+var
+  i, TempCount : integer;
+  TempSrcPath, TempDstPath : string;
+begin
+  Result := False;
+
+  try
+    if (aFileList <> nil) and
+       (length(aSrcDirectory) > 0) and
+       (length(aDstDirectory) > 0) and
+       DirectoryExists(aSrcDirectory) and
+       (DirectoryExists(aDstDirectory) or CreateDir(aDstDirectory)) then
+      begin
+        i         := 0;
+        TempCount := 0;
+
+        while (i < aFileList.Count) do
+          begin
+            TempSrcPath := IncludeTrailingPathDelimiter(aSrcDirectory) + aFileList[i];
+            TempDstPath := IncludeTrailingPathDelimiter(aDstDirectory) + aFileList[i];
+
+            if FileExists(TempSrcPath) and RenameFile(TempSrcPath, TempDstPath) then inc(TempCount);
+
+            inc(i);
+          end;
+
+        Result := (aFileList.Count = TempCount);
+      end;
+  except
+    on e : exception do
+      if CustomExceptionHandler('MoveFileList', e) then raise;
   end;
 end;
 

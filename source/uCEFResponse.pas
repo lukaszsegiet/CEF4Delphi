@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFResponse;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -65,6 +63,8 @@ type
       procedure SetStatusText(const StatusText: ustring);
       function  GetMimeType: ustring;
       procedure SetMimeType(const mimetype: ustring);
+      function  GetCharset: ustring;
+      procedure SetCharset(const charset: ustring);
       function  GetHeader(const name: ustring): ustring;
       procedure GetHeaderMap(const headerMap: ICefStringMultimap);
       procedure SetHeaderMap(const headerMap: ICefStringMultimap);
@@ -141,6 +141,19 @@ var
 begin
   TempType := CefString(mimetype);
   PCefResponse(FData)^.set_mime_type(PCefResponse(FData), @TempType);
+end;
+
+function TCefResponseRef.GetCharset: ustring;
+begin
+  Result := CefStringFreeAndGet(PCefResponse(FData)^.get_charset(PCefResponse(FData)));
+end;
+
+procedure TCefResponseRef.SetCharset(const charset: ustring);
+var
+  TempCharset : TCefString;
+begin
+  TempCharset := CefString(charset);
+  PCefResponse(FData)^.set_charset(PCefResponse(FData), @TempCharset);
 end;
 
 procedure TCefResponseRef.SetStatus(status: Integer);

@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFRequestContext;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -66,8 +64,8 @@ type
       function  IsGlobal: Boolean;
       function  GetHandler: ICefRequestContextHandler;
       function  GetCachePath: ustring;
-      function  GetDefaultCookieManager(const callback: ICefCompletionCallback): ICefCookieManager;
-      function  GetDefaultCookieManagerProc(const callback: TCefCompletionCallbackProc): ICefCookieManager;
+      function  GetCookieManager(const callback: ICefCompletionCallback): ICefCookieManager;
+      function  GetCookieManagerProc(const callback: TCefCompletionCallbackProc): ICefCookieManager;
       function  RegisterSchemeHandlerFactory(const schemeName, domainName: ustring; const factory: ICefSchemeHandlerFactory): Boolean;
       function  ClearSchemeHandlerFactories: Boolean;
       procedure PurgePluginListCache(reloadPages: Boolean);
@@ -77,9 +75,9 @@ type
       function  CanSetPreference(const name: ustring): Boolean;
       function  SetPreference(const name: ustring; const value: ICefValue; out error: ustring): Boolean;
       procedure ClearCertificateExceptions(const callback: ICefCompletionCallback);
+      procedure ClearHttpAuthCredentials(const callback: ICefCompletionCallback);
       procedure CloseAllConnections(const callback: ICefCompletionCallback);
       procedure ResolveHost(const origin: ustring; const callback: ICefResolveCallback);
-      function  ResolveHostCached(const origin: ustring; const resolvedIps: TStrings): TCefErrorCode;
       procedure LoadExtension(const root_directory: ustring; const manifest: ICefDictionaryValue; const handler: ICefExtensionHandler);
       function  DidLoadExtension(const extension_id: ustring): boolean;
       function  HasExtension(const extension_id: ustring): boolean;
@@ -110,14 +108,14 @@ begin
   Result := CefStringFreeAndGet(PCefRequestContext(FData)^.get_cache_path(PCefRequestContext(FData)));
 end;
 
-function TCefRequestContextRef.GetDefaultCookieManager(const callback: ICefCompletionCallback): ICefCookieManager;
+function TCefRequestContextRef.GetCookieManager(const callback: ICefCompletionCallback): ICefCookieManager;
 begin
-  Result := TCefCookieManagerRef.UnWrap(PCefRequestContext(FData)^.get_default_cookie_manager(PCefRequestContext(FData), CefGetData(callback)));
+  Result := TCefCookieManagerRef.UnWrap(PCefRequestContext(FData)^.get_cookie_manager(PCefRequestContext(FData), CefGetData(callback)));
 end;
 
-function TCefRequestContextRef.GetDefaultCookieManagerProc(const callback: TCefCompletionCallbackProc): ICefCookieManager;
+function TCefRequestContextRef.GetCookieManagerProc(const callback: TCefCompletionCallbackProc): ICefCookieManager;
 begin
-  Result := GetDefaultCookieManager(TCefFastCompletionCallback.Create(callback));
+  Result := GetCookieManager(TCefFastCompletionCallback.Create(callback));
 end;
 
 function TCefRequestContextRef.GetHandler: ICefRequestContextHandler;
@@ -223,6 +221,11 @@ begin
   PCefRequestContext(FData)^.clear_certificate_exceptions(PCefRequestContext(FData), CefGetData(callback));
 end;
 
+procedure TCefRequestContextRef.ClearHttpAuthCredentials(const callback: ICefCompletionCallback);
+begin
+  PCefRequestContext(FData)^.clear_http_auth_credentials(PCefRequestContext(FData), CefGetData(callback));
+end;
+
 procedure TCefRequestContextRef.CloseAllConnections(const callback: ICefCompletionCallback);
 begin
   PCefRequestContext(FData)^.close_all_connections(PCefRequestContext(FData), CefGetData(callback));
@@ -235,18 +238,6 @@ var
 begin
   TempOrigin := CefString(origin);
   PCefRequestContext(FData)^.resolve_host(PCefRequestContext(FData), @TempOrigin, CefGetData(callback));
-end;
-
-function TCefRequestContextRef.ResolveHostCached(const origin      : ustring;
-                                                 const resolvedIps : TStrings): TCefErrorCode;
-var
-  TempSL     : ICefStringList;
-  TempOrigin : TCefString;
-begin
-  TempSL     := TCefStringListOwn.Create;
-  TempOrigin := CefString(origin);
-  Result     := PCefRequestContext(FData)^.resolve_host_cached(PCefRequestContext(FData), @TempOrigin, TempSL.Handle);
-  TempSL.CopyToStrings(resolvedIps);
 end;
 
 procedure TCefRequestContextRef.LoadExtension(const root_directory: ustring; const manifest: ICefDictionaryValue; const handler: ICefExtensionHandler);

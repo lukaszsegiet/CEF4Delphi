@@ -44,9 +44,12 @@ uses
   uCEFWebPluginInfo, uCEFWebPluginInfoVisitor, uCEFWebPluginUnstableCallback, 
   uCEFWindowParent, uCEFWorkScheduler, uCEFWorkSchedulerThread, 
   uCEFWriteHandler, uCEFX509Certificate, uCEFX509CertPrincipal, uCEFXmlReader, 
-  uCEFZipReader, uCEFChromium, uBufferPanel, uCEFServer, uCEFServerComponent, 
-  uCEFServerEvents, uCEFServerHandler, uCEFWinControl, uCEFLinkedWindowParent, 
-  LazarusPackageIntf;
+  uCEFZipReader, uCEFChromium, uCEFBufferPanel, uCEFServer, 
+  uCEFServerComponent, uCEFServerEvents, uCEFServerHandler, uCEFWinControl, 
+  uCEFLinkedWindowParent, uCEFUrlRequestClientEvents, 
+  uCEFUrlRequestClientComponent, uCEFOSRIMEHandler, uCEFAudioHandler, 
+  uCEFCookieAccessFilter, uCEFResourceReadCallback, 
+  uCEFResourceRequestHandler, uCEFResourceSkipCallback, LazarusPackageIntf;
 
 implementation
 
@@ -56,9 +59,11 @@ begin
   RegisterUnit('uCEFWindowParent', @uCEFWindowParent.Register);
   RegisterUnit('uCEFWorkScheduler', @uCEFWorkScheduler.Register);
   RegisterUnit('uCEFChromium', @uCEFChromium.Register);
-  RegisterUnit('uBufferPanel', @uBufferPanel.Register);
+  RegisterUnit('uCEFBufferPanel', @uCEFBufferPanel.Register);
   RegisterUnit('uCEFServerComponent', @uCEFServerComponent.Register);
   RegisterUnit('uCEFLinkedWindowParent', @uCEFLinkedWindowParent.Register);
+  RegisterUnit('uCEFUrlRequestClientComponent', 
+    @uCEFUrlRequestClientComponent.Register);
 end;
 
 initialization

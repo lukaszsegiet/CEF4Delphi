@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -49,13 +49,14 @@ implementation
 
 uses
   Classes,
-  uCEFChromium, uCEFWindowParent, uCEFChromiumWindow, uBufferPanel, uCEFWorkScheduler, 
-  uCEFServerComponent, uCEFLinkedWindowParent;
+  uCEFChromium, uCEFWindowParent, uCEFChromiumWindow, uCEFBufferPanel, uCEFWorkScheduler,
+  uCEFServerComponent, uCEFLinkedWindowParent, uCEFUrlRequestClientComponent;
 
 procedure Register;
 begin
   RegisterComponents('Chromium', [TChromium, TCEFWindowParent, TChromiumWindow, TBufferPanel,
-                                  TCEFWorkScheduler, TCEFServerComponent, TCEFLinkedWindowParent]);
+                                  TCEFWorkScheduler, TCEFServerComponent, TCEFLinkedWindowParent,
+				  TCEFUrlRequestClientComponent]);
 end;
 
 end.

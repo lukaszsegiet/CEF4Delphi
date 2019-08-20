@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFRenderHandler;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -58,18 +56,20 @@ type
     protected
       procedure GetAccessibilityHandler(var aAccessibilityHandler : ICefAccessibilityHandler); virtual;
       function  GetRootScreenRect(const browser: ICefBrowser; var rect: TCefRect): Boolean; virtual;
-      function  GetViewRect(const browser: ICefBrowser; var rect: TCefRect): Boolean; virtual;
+      procedure GetViewRect(const browser: ICefBrowser; var rect: TCefRect); virtual;
       function  GetScreenPoint(const browser: ICefBrowser; viewX, viewY: Integer; var screenX, screenY: Integer): Boolean; virtual;
       function  GetScreenInfo(const browser: ICefBrowser; var screenInfo: TCefScreenInfo): Boolean; virtual;
       procedure OnPopupShow(const browser: ICefBrowser; show: Boolean); virtual;
       procedure OnPopupSize(const browser: ICefBrowser; const rect: PCefRect); virtual;
       procedure OnPaint(const browser: ICefBrowser; kind: TCefPaintElementType; dirtyRectsCount: NativeUInt; const dirtyRects: PCefRectArray; const buffer: Pointer; width, height: Integer); virtual;
+      procedure OnAcceleratedPaint(const browser: ICefBrowser; kind: TCefPaintElementType; dirtyRectsCount: NativeUInt; const dirtyRects: PCefRectArray; shared_handle: Pointer); virtual;
       procedure OnCursorChange(const browser: ICefBrowser; cursor: TCefCursorHandle; CursorType: TCefCursorType; const customCursorInfo: PCefCursorInfo); virtual;
       function  OnStartDragging(const browser: ICefBrowser; const dragData: ICefDragData; allowedOps: TCefDragOperations; x, y: Integer): Boolean; virtual;
       procedure OnUpdateDragCursor(const browser: ICefBrowser; operation: TCefDragOperation); virtual;
       procedure OnScrollOffsetChanged(const browser: ICefBrowser; x, y: Double); virtual;
       procedure OnIMECompositionRangeChanged(const browser: ICefBrowser; const selected_range: PCefRange; character_boundsCount: NativeUInt; const character_bounds: PCefRect); virtual;
       procedure OnTextSelectionChanged(const browser: ICefBrowser; const selected_text: ustring; const selected_range: PCefRange); virtual;
+      procedure OnVirtualKeyboardRequested(const browser: ICefBrowser; input_mode: TCefTextInpuMode); virtual;
 
       procedure RemoveReferences; virtual;
 
@@ -83,11 +83,12 @@ type
 
       procedure GetAccessibilityHandler(var aAccessibilityHandler : ICefAccessibilityHandler); override;
       function  GetRootScreenRect(const browser: ICefBrowser; var rect: TCefRect): Boolean; override;
-      function  GetViewRect(const browser: ICefBrowser; var rect: TCefRect): Boolean; override;
+      procedure GetViewRect(const browser: ICefBrowser; var rect: TCefRect); override;
       function  GetScreenPoint(const browser: ICefBrowser; viewX, viewY: Integer; var screenX, screenY: Integer): Boolean; override;
       procedure OnPopupShow(const browser: ICefBrowser; show: Boolean); override;
       procedure OnPopupSize(const browser: ICefBrowser; const rect: PCefRect); override;
       procedure OnPaint(const browser: ICefBrowser; kind: TCefPaintElementType; dirtyRectsCount: NativeUInt; const dirtyRects: PCefRectArray; const buffer: Pointer; width, height: Integer); override;
+      procedure OnAcceleratedPaint(const browser: ICefBrowser; kind: TCefPaintElementType; dirtyRectsCount: NativeUInt; const dirtyRects: PCefRectArray; shared_handle: Pointer); override;
       procedure OnCursorChange(const browser: ICefBrowser; cursor: TCefCursorHandle; cursorType: TCefCursorType; const customCursorInfo: PCefCursorInfo); override;
       function  GetScreenInfo(const browser: ICefBrowser; var screenInfo: TCefScreenInfo): Boolean; override;
       function  OnStartDragging(const browser: ICefBrowser; const dragData: ICefDragData; allowedOps: TCefDragOperations; x, y: Integer): Boolean; override;
@@ -95,11 +96,12 @@ type
       procedure OnScrollOffsetChanged(const browser: ICefBrowser; x, y: Double); override;
       procedure OnIMECompositionRangeChanged(const browser: ICefBrowser; const selected_range: PCefRange; character_boundsCount: NativeUInt; const character_bounds: PCefRect); override;
       procedure OnTextSelectionChanged(const browser: ICefBrowser; const selected_text: ustring; const selected_range: PCefRange); override;
+      procedure OnVirtualKeyboardRequested(const browser: ICefBrowser; input_mode: TCefTextInpuMode); override;
 
       procedure RemoveReferences; override;
 
     public
-      constructor Create(const events: Pointer); reintroduce; virtual;
+      constructor Create(const events : IChromiumEvents); reintroduce; virtual;
       destructor  Destroy; override;
   end;
 
@@ -145,18 +147,21 @@ begin
                                                                      rect^));
 end;
 
-function cef_render_handler_get_view_rect(self    : PCefRenderHandler;
-                                          browser : PCefBrowser;
-                                          rect    : PCefRect): Integer; stdcall;
+procedure cef_render_handler_get_view_rect(self    : PCefRenderHandler;
+                                           browser : PCefBrowser;
+                                           rect    : PCefRect); stdcall;
 var
   TempObject : TObject;
 begin
-  Result     := Ord(False);
   TempObject := CefGetObject(self);
 
   if (TempObject <> nil) and (TempObject is TCefRenderHandlerOwn) then
-    Result := Ord(TCefRenderHandlerOwn(TempObject).GetViewRect(TCefBrowserRef.UnWrap(browser),
-                                                               rect^));
+    TCefRenderHandlerOwn(TempObject).GetViewRect(TCefBrowserRef.UnWrap(browser),
+                                                 rect^);
+
+  // CEF3 needs a rect with valid height and width
+  if (rect^.width  <= 0) then rect^.width  := 800;
+  if (rect^.height <= 0) then rect^.height := 600;
 end;
 
 function cef_render_handler_get_screen_point(self             : PCefRenderHandler;
@@ -238,6 +243,25 @@ begin
                                              buffer,
                                              width,
                                              height);
+end;
+
+procedure cef_render_handler_on_accelerated_paint(      self             : PCefRenderHandler;
+                                                        browser          : PCefBrowser;
+                                                        kind             : TCefPaintElementType;
+                                                        dirtyRectsCount  : NativeUInt;
+                                                  const dirtyRects       : PCefRectArray;
+                                                        shared_handle    : Pointer); stdcall;
+var
+  TempObject : TObject;
+begin
+  TempObject := CefGetObject(self);
+
+  if (TempObject <> nil) and (TempObject is TCefRenderHandlerOwn) then
+    TCefRenderHandlerOwn(TempObject).OnAcceleratedPaint(TCefBrowserRef.UnWrap(browser),
+                                                        kind,
+                                                        dirtyRectsCount,
+                                                        dirtyRects,
+                                                        shared_handle);
 end;
 
 procedure cef_render_handler_on_cursor_change(      self               : PCefRenderHandler;
@@ -336,6 +360,19 @@ begin
                                                             selected_range);
 end;
 
+procedure cef_render_handler_on_virtual_keyboard_requested(self       : PCefRenderHandler;
+                                                           browser    : PCefBrowser;
+                                                           input_mode : TCefTextInpuMode); stdcall;
+var
+  TempObject : TObject;
+begin
+  TempObject := CefGetObject(self);
+
+  if (TempObject <> nil) and (TempObject is TCefRenderHandlerOwn) then
+    TCefRenderHandlerOwn(TempObject).OnVirtualKeyboardRequested(TCefBrowserRef.UnWrap(browser),
+                                                                input_mode);
+end;
+
 constructor TCefRenderHandlerOwn.Create;
 begin
   inherited CreateData(SizeOf(TCefRenderHandler));
@@ -350,12 +387,14 @@ begin
       on_popup_show                    := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_popup_show;
       on_popup_size                    := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_popup_size;
       on_paint                         := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_paint;
+      on_accelerated_paint             := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_accelerated_paint;
       on_cursor_change                 := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_cursor_change;
       start_dragging                   := {$IFDEF FPC}@{$ENDIF}cef_render_handler_start_dragging;
       update_drag_cursor               := {$IFDEF FPC}@{$ENDIF}cef_render_handler_update_drag_cursor;
       on_scroll_offset_changed         := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_scroll_offset_changed;
       on_ime_composition_range_changed := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_ime_composition_range_changed;
       on_text_selection_changed        := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_text_selection_changed;
+      on_virtual_keyboard_requested    := {$IFDEF FPC}@{$ENDIF}cef_render_handler_on_virtual_keyboard_requested;
     end;
 end;
 
@@ -379,9 +418,9 @@ begin
   Result := False;
 end;
 
-function TCefRenderHandlerOwn.GetViewRect(const browser: ICefBrowser; var rect: TCefRect): Boolean;
+procedure TCefRenderHandlerOwn.GetViewRect(const browser: ICefBrowser; var rect: TCefRect);
 begin
-  Result := False;
+  //
 end;
 
 procedure TCefRenderHandlerOwn.OnCursorChange(const browser: ICefBrowser; cursor: TCefCursorHandle; CursorType: TCefCursorType; const customCursorInfo: PCefCursorInfo);
@@ -390,6 +429,11 @@ begin
 end;
 
 procedure TCefRenderHandlerOwn.OnPaint(const browser: ICefBrowser; kind: TCefPaintElementType; dirtyRectsCount: NativeUInt; const dirtyRects: PCefRectArray; const buffer: Pointer; width, height: Integer);
+begin
+  //
+end;
+
+procedure TCefRenderHandlerOwn.OnAcceleratedPaint(const browser: ICefBrowser; kind: TCefPaintElementType; dirtyRectsCount: NativeUInt; const dirtyRects: PCefRectArray; shared_handle: Pointer);
 begin
   //
 end;
@@ -424,6 +468,12 @@ begin
   //
 end;
 
+procedure TCefRenderHandlerOwn.OnVirtualKeyboardRequested(const browser    : ICefBrowser;
+                                                                input_mode : TCefTextInpuMode);
+begin
+  //
+end;
+
 function TCefRenderHandlerOwn.OnStartDragging(const browser: ICefBrowser; const dragData: ICefDragData; allowedOps: TCefDragOperations; x, y: Integer): Boolean;
 begin
   Result := False;
@@ -441,11 +491,11 @@ end;
 
 // TCustomRenderHandler
 
-constructor TCustomRenderHandler.Create(const events: Pointer);
+constructor TCustomRenderHandler.Create(const events : IChromiumEvents);
 begin
   inherited Create;
 
-  FEvents := events;
+  FEvents := Pointer(events);
 end;
 
 destructor TCustomRenderHandler.Destroy;
@@ -489,12 +539,12 @@ begin
     Result := inherited GetScreenPoint(browser, viewX, viewY, screenX, screenY);
 end;
 
-function TCustomRenderHandler.GetViewRect(const browser: ICefBrowser; var rect: TCefRect): Boolean;
+procedure TCustomRenderHandler.GetViewRect(const browser: ICefBrowser; var rect: TCefRect);
 begin
   if (FEvents <> nil) then
-    Result := IChromiumEvents(FEvents).doOnGetViewRect(browser, rect)
+    IChromiumEvents(FEvents).doOnGetViewRect(browser, rect)
    else
-    Result := inherited GetViewRect(browser, rect);
+    inherited GetViewRect(browser, rect);
 end;
 
 procedure TCustomRenderHandler.OnCursorChange(const browser          : ICefBrowser;
@@ -514,6 +564,15 @@ procedure TCustomRenderHandler.OnPaint(const browser         : ICefBrowser;
                                              height          : Integer);
 begin
   if (FEvents <> nil) then IChromiumEvents(FEvents).doOnPaint(browser, kind, dirtyRectsCount, dirtyRects, buffer, width, height);
+end;
+
+procedure TCustomRenderHandler.OnAcceleratedPaint(const browser         : ICefBrowser;
+                                                        kind            : TCefPaintElementType;
+                                                        dirtyRectsCount : NativeUInt;
+                                                  const dirtyRects      : PCefRectArray;
+                                                        shared_handle   : Pointer);
+begin
+  if (FEvents <> nil) then IChromiumEvents(FEvents).doOnAcceleratedPaint(browser, kind, dirtyRectsCount, dirtyRects, shared_handle);
 end;
 
 procedure TCustomRenderHandler.OnPopupShow(const browser: ICefBrowser; show: Boolean);
@@ -544,6 +603,12 @@ procedure TCustomRenderHandler.OnTextSelectionChanged(const browser        : ICe
                                                       const selected_range : PCefRange);
 begin
   if (FEvents <> nil) then IChromiumEvents(FEvents).doOnTextSelectionChanged(browser, selected_text, selected_range);
+end;
+
+procedure TCustomRenderHandler.OnVirtualKeyboardRequested(const browser    : ICefBrowser;
+                                                                input_mode : TCefTextInpuMode);
+begin
+  if (FEvents <> nil) then IChromiumEvents(FEvents).doOnVirtualKeyboardRequested(browser, input_mode);
 end;
 
 function TCustomRenderHandler.OnStartDragging(const browser    : ICefBrowser;

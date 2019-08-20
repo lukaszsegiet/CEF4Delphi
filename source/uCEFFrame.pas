@@ -10,7 +10,7 @@
 // For more information about CEF4Delphi visit :
 //         https://www.briskbard.com/index.php?lang=en&pageid=cef
 //
-//        Copyright © 2018 Salvador Diaz Fau. All rights reserved.
+//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
 //
 // ************************************************************************
 // ************ vvvv Original license and comments below vvvv *************
@@ -41,10 +41,8 @@ unit uCEFFrame;
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}
-  {$ALIGN ON}
-  {$MINENUMSIZE 4}
-{$ENDIF}
+{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 {$I cef.inc}
 
@@ -83,6 +81,8 @@ type
       function  GetV8Context: ICefv8Context;
       procedure VisitDom(const visitor: ICefDomVisitor);
       procedure VisitDomProc(const proc: TCefDomVisitorProc);
+      function  CreateUrlRequest(const request: ICefRequest; const client: ICefUrlrequestClient): ICefUrlRequest;
+      procedure SendProcessMessage(targetProcess: TCefProcessId; const message_: ICefProcessMessage);
 
       class function UnWrap(data: Pointer): ICefFrame;
   end;
@@ -90,7 +90,7 @@ type
 implementation
 
 uses
-  uCEFMiscFunctions, uCEFLibFunctions, uCEFBrowser, uCEFStringVisitor, uCEFv8Context, uCEFDomVisitor;
+  uCEFMiscFunctions, uCEFLibFunctions, uCEFBrowser, uCEFStringVisitor, uCEFv8Context, uCEFDomVisitor, uCEFUrlRequest;
 
 function TCefFrameRef.IsValid: Boolean;
 begin
@@ -237,6 +237,22 @@ end;
 procedure TCefFrameRef.VisitDomProc(const proc: TCefDomVisitorProc);
 begin
   VisitDom(TCefFastDomVisitor.Create(proc) as ICefDomVisitor);
+end;
+
+function TCefFrameRef.CreateUrlRequest(const request : ICefRequest;
+                                       const client  : ICefUrlrequestClient): ICefUrlRequest;
+begin
+  Result := TCefUrlRequestRef.UnWrap(PCefFrame(FData)^.create_urlrequest(PCefFrame(FData),
+                                                                         CefGetData(request),
+                                                                         CefGetData(client)));
+end;
+
+procedure TCefFrameRef.SendProcessMessage(      targetProcess : TCefProcessId;
+                                          const message_      : ICefProcessMessage);
+begin
+  PCefFrame(FData)^.send_process_message(PCefFrame(FData),
+                                         targetProcess,
+                                         CefGetData(message_));
 end;
 
 class function TCefFrameRef.UnWrap(data: Pointer): ICefFrame;
