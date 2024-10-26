@@ -1,75 +1,48 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uCEFFMXWorkScheduler;
 
-{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
-{$MINENUMSIZE 4}
-
 {$I cef.inc}
+
+{$IFNDEF TARGET_64BITS}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 interface
 
 uses
   System.Classes, System.Types,
   FMX.Types, FMX.Controls,
-  uCEFConstants, uCEFWorkSchedulerThread;
+  uCEFConstants, uCEFWorkSchedulerQueueThread, uCEFWorkSchedulerThread;
 
 type
-  {$IFNDEF FPC}{$IFDEF DELPHI16_UP}[ComponentPlatformsAttribute(pidWin32 or pidWin64)]{$ENDIF}{$ENDIF}
+  {$IFNDEF FPC}{$IFDEF DELPHI16_UP}[ComponentPlatformsAttribute(pfidWindows or pfidOSX or pfidLinux)]{$ENDIF}{$ENDIF}
+  /// <summary>
+  /// <para>Implementation of an external message pump for FMX.</para>
+  /// <para>Read the GlobalCEFApp.OnScheduleMessagePumpWork documentation for all the details.</para>
+  /// </summary>
   TFMXWorkScheduler = class(TComponent)
     protected
       FThread             : TCEFWorkSchedulerThread;
+      FQueueThread        : TCEFWorkSchedulerQueueThread;
       FDepleteWorkCycles  : cardinal;
       FDepleteWorkDelay   : cardinal;
       FDefaultInterval    : integer;
       FStopped            : boolean;
+      FUseQueueThread     : boolean;
       {$IFDEF MSWINDOWS}
       {$WARN SYMBOL_PLATFORM OFF}
       FPriority           : TThreadPriority;
       {$WARN SYMBOL_PLATFORM ON}
       {$ENDIF}
 
-      procedure CreateThread;
+      procedure CreateQueueThread;
+      procedure DestroyQueueThread;
+      procedure QueueThread_OnPulse(Sender : TObject; aDelay : integer);
+
       procedure DestroyThread;
       procedure DepleteWork;
       procedure NextPulse(aInterval : integer);
       procedure DoWork;
       procedure DoMessageLoopWork;
+      procedure Initialize;
 
       procedure SetDefaultInterval(aValue : integer);
       {$IFDEF MSWINDOWS}
@@ -78,26 +51,69 @@ type
       {$WARN SYMBOL_PLATFORM ON}
       {$ENDIF}
 
-
       procedure Thread_OnPulse(Sender : TObject);
 
     public
+      /// <summary>
+      /// Full constructor of TFMXWorkScheduler. This constructor also creates the internal threads.
+      /// </summary>
       constructor Create(AOwner: TComponent); override;
+      /// <summary>
+      /// Partial constructor of TFMXWorkScheduler. This constructor doesn't create any threads.
+      /// Call TFMXWorkScheduler.CreateThread when necessary.
+      /// </summary>
+      constructor CreateDelayed;
+      /// <summary>
+      /// TFMXWorkScheduler destructor.
+      /// </summary>
       destructor  Destroy; override;
-      procedure   AfterConstruction; override;
+      /// <summary>
+      /// Called from GlobalCEFApp.OnScheduleMessagePumpWork to schedule
+      /// a GlobalCEFApp.DoMessageLoopWork call asynchronously to perform a single
+      /// iteration of CEF message loop processing.
+      /// </summary>
+      /// <param name="delay_ms">Requested delay in milliseconds.</param>
       procedure   ScheduleMessagePumpWork(const delay_ms : int64);
+      /// <summary>
+      /// Stop the scheduler. This function must be called after the destruction of all the forms in the application.
+      /// </summary>
       procedure   StopScheduler;
+      /// <summary>
+      /// Schedule a GlobalCEFApp.DoMessageLoopWork call synchronously to perform a single
+      /// iteration of CEF message loop processing.
+      /// </summary>
       procedure   ScheduleWork(const delay_ms : int64);
+      /// <summary>
+      /// Creates all the internal threads used by TCEFWorkScheduler.
+      /// </summary>
+      procedure   CreateThread;
+
 
     published
       {$IFDEF MSWINDOWS}
       {$WARN SYMBOL_PLATFORM OFF}
+      /// <summary>
+      /// Priority of TCEFWorkSchedulerThread in Windows.
+      /// </summary>
       property    Priority           : TThreadPriority  read FPriority            write SetPriority         default  tpNormal;
       {$WARN SYMBOL_PLATFORM ON}
       {$ENDIF}
+      /// <summary>
+      /// Default interval in milliseconds to do the next GlobalCEFApp.DoMessageLoopWork call.
+      /// </summary>
       property    DefaultInterval    : integer          read FDefaultInterval     write SetDefaultInterval  default  CEF_TIMER_MAXDELAY;
+      /// <summary>
+      /// Number of cycles used to deplete the remaining messages in the work loop.
+      /// </summary>
       property    DepleteWorkCycles  : cardinal         read FDepleteWorkCycles   write FDepleteWorkCycles  default  CEF_TIMER_DEPLETEWORK_CYCLES;
+      /// <summary>
+      /// Delay in milliseconds between the cycles used to deplete the remaining messages in the work loop.
+      /// </summary>
       property    DepleteWorkDelay   : cardinal         read FDepleteWorkDelay    write FDepleteWorkDelay   default  CEF_TIMER_DEPLETEWORK_DELAY;
+      /// <summary>
+      /// Use a custom queue thread instead of Windows messages or any other way to schedule the next pump work.
+      /// </summary>
+      property    UseQueueThread     : boolean          read FUseQueueThread      write FUseQueueThread     default  False;
   end;
 
 var
@@ -109,8 +125,8 @@ implementation
 
 uses
   {$IFDEF MSWINDOWS}WinApi.Windows,{$ENDIF} System.SysUtils, System.Math,
-  FMX.Platform, FMX.Platform.Win, FMX.Forms,
-  uCEFMiscFunctions, uCEFApplication;
+  FMX.Platform, {$IFDEF MSWINDOWS}FMX.Platform.Win,{$ENDIF} FMX.Forms,
+  uCEFMiscFunctions, uCEFApplicationCore;
 
 procedure DestroyGlobalFMXWorkScheduler;
 begin
@@ -121,7 +137,31 @@ constructor TFMXWorkScheduler.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
 
+  Initialize;
+
+  if not(csDesigning in ComponentState) then CreateThread;
+end;
+
+constructor TFMXWorkScheduler.CreateDelayed;
+begin
+  inherited Create(nil);
+
+  Initialize;
+end;
+
+destructor TFMXWorkScheduler.Destroy;
+begin
+  DestroyThread;
+  DestroyQueueThread;
+
+  inherited Destroy;
+end;
+
+procedure TFMXWorkScheduler.Initialize;
+begin
+  FUseQueueThread     := False;
   FThread             := nil;
+  FQueueThread        := nil;
   FStopped            := False;
   {$IFDEF MSWINDOWS}
   {$WARN SYMBOL_PLATFORM OFF}
@@ -133,22 +173,10 @@ begin
   FDepleteWorkDelay   := CEF_TIMER_DEPLETEWORK_DELAY;
 end;
 
-destructor TFMXWorkScheduler.Destroy;
-begin
-  DestroyThread;
-
-  inherited Destroy;
-end;
-
-procedure TFMXWorkScheduler.AfterConstruction;
-begin
-  inherited AfterConstruction;
-
-  if not(csDesigning in ComponentState) then CreateThread;
-end;
-
 procedure TFMXWorkScheduler.CreateThread;
 begin
+  if (FThread <> nil) then exit;
+
   FThread                 := TCEFWorkSchedulerThread.Create;
   {$IFDEF MSWINDOWS}
   FThread.Priority        := FPriority;
@@ -156,6 +184,45 @@ begin
   FThread.DefaultInterval := FDefaultInterval;
   FThread.OnPulse         := Thread_OnPulse;
   FThread.Start;
+
+  if FUseQueueThread then
+    CreateQueueThread;
+end;
+
+procedure TFMXWorkScheduler.CreateQueueThread;
+begin
+  FQueueThread         := TCEFWorkSchedulerQueueThread.Create;
+  FQueueThread.OnPulse := {$IFDEF FPC}@{$ENDIF}QueueThread_OnPulse;
+  {$IFDEF DELPHI14_UP}
+  FQueueThread.Start;
+  {$ELSE}
+  {$IFNDEF FPC}
+  FQueueThread.Resume;
+  {$ELSE}
+  FQueueThread.Start;
+  {$ENDIF}
+  {$ENDIF}
+end;
+
+procedure TFMXWorkScheduler.DestroyQueueThread;
+begin
+  try
+    if (FQueueThread <> nil) then
+      begin
+        FQueueThread.Terminate;
+        FQueueThread.StopThread;
+        FQueueThread.WaitFor;
+        FreeAndNil(FQueueThread);
+      end;
+  except
+    on e : exception do
+      if CustomExceptionHandler('TFMXWorkScheduler.DestroyQueueThread', e) then raise;
+  end;
+end;
+
+procedure TFMXWorkScheduler.QueueThread_OnPulse(Sender : TObject; aDelay : integer);
+begin
+  ScheduleWork(aDelay);
 end;
 
 procedure TFMXWorkScheduler.DestroyThread;
@@ -210,23 +277,21 @@ begin
 end;
 
 procedure TFMXWorkScheduler.ScheduleMessagePumpWork(const delay_ms : int64);
-{$IFDEF MSWINDOWS}
-var
-  TempHandle : HWND;
-{$ENDIF}
 begin
-  if not(FStopped) then
-    begin
-      {$IFDEF MSWINDOWS}
-      if (Application <> nil) and (Application.MainForm <> nil) then
-        TempHandle := FmxHandleToHWND(Application.MainForm.Handle)
-       else
-        TempHandle := 0;
+  if FStopped then exit;
 
-      if (TempHandle <> 0) then
-        WinApi.Windows.PostMessage(TempHandle, CEF_PUMPHAVEWORK, 0, LPARAM(delay_ms));
-      {$ENDIF}
-    end;
+  if FUseQueueThread and (FQueueThread <> nil) and FQueueThread.Ready then
+    FQueueThread.EnqueueValue(integer(delay_ms))
+   else
+    {$IFDEF DELPHI25_UP}
+    TThread.ForceQueue(nil,
+    {$ELSE}
+    TThread.Queue(nil,
+    {$ENDIF}
+      procedure
+      begin
+        ScheduleWork(delay_ms);
+      end);
 end;
 
 procedure TFMXWorkScheduler.StopScheduler;

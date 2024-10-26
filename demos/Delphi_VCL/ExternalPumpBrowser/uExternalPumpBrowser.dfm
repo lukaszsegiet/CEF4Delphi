@@ -10,12 +10,10 @@ object ExternalPumpBrowserFrm: TExternalPumpBrowserFrm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object AddressPnl: TPanel
     Left = 0
@@ -95,7 +93,6 @@ object ExternalPumpBrowserFrm: TExternalPumpBrowserFrm
     OnBeforePopup = Chromium1BeforePopup
     OnAfterCreated = Chromium1AfterCreated
     OnBeforeClose = Chromium1BeforeClose
-    OnClose = Chromium1Close
     Left = 56
     Top = 152
   end

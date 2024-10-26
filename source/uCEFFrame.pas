@@ -1,50 +1,13 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uCEFFrame;
 
 {$IFDEF FPC}
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
-{$MINENUMSIZE 4}
-
 {$I cef.inc}
+
+{$IFNDEF TARGET_64BITS}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 interface
 
@@ -69,12 +32,11 @@ type
       procedure GetTextProc(const proc: TCefStringVisitorProc);
       procedure LoadRequest(const request: ICefRequest);
       procedure LoadUrl(const url: ustring);
-      procedure LoadString(const str, url: ustring);
       procedure ExecuteJavaScript(const code, scriptUrl: ustring; startLine: Integer);
       function  IsMain: Boolean;
       function  IsFocused: Boolean;
       function  GetName: ustring;
-      function  GetIdentifier: Int64;
+      function  GetIdentifier: ustring;
       function  GetParent: ICefFrame;
       function  GetUrl: ustring;
       function  GetBrowser: ICefBrowser;
@@ -126,9 +88,9 @@ begin
   Result := TCefBrowserRef.UnWrap(PCefFrame(FData)^.get_browser(PCefFrame(FData)));
 end;
 
-function TCefFrameRef.GetIdentifier: Int64;
+function TCefFrameRef.GetIdentifier: ustring;
 begin
-  Result := PCefFrame(FData)^.get_identifier(PCefFrame(FData));
+  Result := CefStringFreeAndGet(PCefFrame(FData)^.get_identifier(PCefFrame(FData)));
 end;
 
 function TCefFrameRef.GetName: ustring;
@@ -186,22 +148,12 @@ begin
   PCefFrame(FData)^.load_request(PCefFrame(FData), CefGetData(request));
 end;
 
-procedure TCefFrameRef.LoadString(const str, url: ustring);
-var
-  TempString, TempURL : TCefString;
-begin
-  TempString := CefString(str);
-  TempURL    := CefString(url);
-  PCefFrame(FData)^.load_string(PCefFrame(FData), @TempString, @TempURL);
-end;
-
 procedure TCefFrameRef.LoadUrl(const url: ustring);
 var
   TempURL : TCefString;
 begin
   TempURL := CefString(url);
   PCefFrame(FData)^.load_url(PCefFrame(FData), @TempURL);
-
 end;
 
 procedure TCefFrameRef.Paste;

@@ -1,50 +1,13 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uCEFStringMap;
 
 {$IFDEF FPC}
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
-{$MINENUMSIZE 4}
-
 {$I cef.inc}
+
+{$IFNDEF TARGET_64BITS}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 interface
 
@@ -52,16 +15,38 @@ uses
   uCEFBaseRefCounted, uCEFInterfaces, uCEFTypes;
 
 type
+  /// <summary>
+  /// CEF string maps are a set of key/value string pairs.
+  /// </summary>
   TCefCustomStringMap = class(TInterfacedObject, ICefStringMap)
     protected
       FHandle : TCefStringMap;
 
       function  GetHandle: TCefStringMap; virtual;
+      /// <summary>
+      /// Return the number of elements in the string map.
+      /// </summary>
       function  GetSize: NativeUInt; virtual;
+      /// <summary>
+      /// Return the value assigned to the specified key.
+      /// </summary>
       function  Find(const key: ustring): ustring; virtual;
+      /// <summary>
+      /// Return the key at the specified zero-based string map index.
+      /// </summary>
       function  GetKey(index: NativeUInt): ustring; virtual;
+      /// <summary>
+      /// Return the value at the specified zero-based string map index.
+      /// </summary>
       function  GetValue(index: NativeUInt): ustring; virtual;
+      /// <summary>
+      /// Append a new key/value pair at the end of the string map. If the key exists,
+      /// overwrite the existing value with a new value w/o changing the pair order.
+      /// </summary>
       function  Append(const key, value: ustring) : boolean; virtual;
+      /// <summary>
+      /// Clear the string map.
+      /// </summary>
       procedure Clear; virtual;
 
     public
@@ -70,7 +55,13 @@ type
 
   TCefStringMapOwn = class(TCefCustomStringMap)
     public
+      /// <summary>
+      /// Allocate a new string map.
+      /// </summary>
       constructor Create; override;
+      /// <summary>
+      /// Free the string map.
+      /// </summary>
       destructor  Destroy; override;
   end;
 
@@ -124,11 +115,12 @@ begin
 
   if (FHandle <> nil) then
     begin
-      FillChar(TempValue, SizeOf(TempValue), 0);
+      CefStringInitialize(@TempValue);
+
       TempKey := CefString(key);
 
-      if (cef_string_map_find(FHandle, @TempKey, TempValue) <> 0) then
-        Result := CefString(@TempValue);
+      if (cef_string_map_find(FHandle, @TempKey, @TempValue) <> 0) then
+        Result := CefStringClearAndGet(@TempValue);
     end;
 end;
 
@@ -145,10 +137,10 @@ begin
 
   if (FHandle <> nil) then
     begin
-      FillChar(TempKey, SizeOf(TempKey), 0);
+      CefStringInitialize(@TempKey);
 
-      if (cef_string_map_key(FHandle, index, TempKey) <> 0) then
-        Result := CefString(@TempKey);
+      if (cef_string_map_key(FHandle, index, @TempKey) <> 0) then
+        Result := CefStringClearAndGet(@TempKey);
     end;
 end;
 
@@ -168,10 +160,10 @@ begin
 
   if (FHandle <> nil) then
     begin
-      FillChar(TempValue, SizeOf(TempValue), 0);
+      CefStringInitialize(@TempValue);
 
-      if (cef_string_map_value(FHandle, index, TempValue) <> 0) then
-        Result := CefString(@TempValue);
+      if (cef_string_map_value(FHandle, index, @TempValue) <> 0) then
+        Result := CefStringClearAndGet(@TempValue);
     end;
 end;
 

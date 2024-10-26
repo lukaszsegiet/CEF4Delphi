@@ -1,50 +1,13 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uCEFServerHandler;
 
 {$IFDEF FPC}
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
-{$MINENUMSIZE 4}
-
 {$I cef.inc}
+
+{$IFNDEF TARGET_64BITS}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 interface
 
@@ -69,7 +32,7 @@ type
 
   TCustomServerHandler = class(TCEFServerHandlerOwn)
     protected
-      FEvents : IServerEvents;
+      FEvents : Pointer;
 
       procedure OnServerCreated(const server: ICefServer); override;
       procedure OnServerDestroyed(const server: ICefServer); override;
@@ -278,7 +241,7 @@ constructor TCustomServerHandler.Create(const events: IServerEvents);
 begin
   inherited Create;
 
-  FEvents := events;
+  FEvents := Pointer(events);
 end;
 
 destructor TCustomServerHandler.Destroy;
@@ -291,7 +254,8 @@ end;
 procedure TCustomServerHandler.OnServerCreated(const server: ICefServer);
 begin
   try
-    if (FEvents <> nil) then FEvents.doOnServerCreated(server);
+    if (FEvents <> nil) then
+      IServerEvents(FEvents).doOnServerCreated(server);
   except
     on e : exception do
       if CustomExceptionHandler('TCustomServerHandler.OnServerCreated', e) then raise;
@@ -301,7 +265,8 @@ end;
 procedure TCustomServerHandler.OnServerDestroyed(const server: ICefServer);
 begin
   try
-    if (FEvents <> nil) then FEvents.doOnServerDestroyed(server);
+    if (FEvents <> nil) then
+      IServerEvents(FEvents).doOnServerDestroyed(server);
   except
     on e : exception do
       if CustomExceptionHandler('TCustomServerHandler.OnServerDestroyed', e) then raise;
@@ -311,7 +276,8 @@ end;
 procedure TCustomServerHandler.OnClientConnected(const server: ICefServer; connection_id: Integer);
 begin
   try
-    if (FEvents <> nil) then FEvents.doOnClientConnected(server, connection_id);
+    if (FEvents <> nil) then
+      IServerEvents(FEvents).doOnClientConnected(server, connection_id);
   except
     on e : exception do
       if CustomExceptionHandler('TCustomServerHandler.OnClientConnected', e) then raise;
@@ -321,7 +287,8 @@ end;
 procedure TCustomServerHandler.OnClientDisconnected(const server: ICefServer; connection_id: Integer);
 begin
   try
-    if (FEvents <> nil) then FEvents.doOnClientDisconnected(server, connection_id);
+    if (FEvents <> nil) then
+      IServerEvents(FEvents).doOnClientDisconnected(server, connection_id);
   except
     on e : exception do
       if CustomExceptionHandler('TCustomServerHandler.OnClientDisconnected', e) then raise;
@@ -331,7 +298,8 @@ end;
 procedure TCustomServerHandler.OnHttpRequest(const server: ICefServer; connection_id: Integer; const client_address: ustring; const request: ICefRequest);
 begin
   try
-    if (FEvents <> nil) then FEvents.doOnHttpRequest(server, connection_id, client_address, request);
+    if (FEvents <> nil) then
+      IServerEvents(FEvents).doOnHttpRequest(server, connection_id, client_address, request);
   except
     on e : exception do
       if CustomExceptionHandler('TCustomServerHandler.OnHttpRequest', e) then raise;
@@ -341,7 +309,8 @@ end;
 procedure TCustomServerHandler.OnWebSocketRequest(const server: ICefServer; connection_id: Integer; const client_address: ustring; const request: ICefRequest; const callback: ICefCallback);
 begin
   try
-    if (FEvents <> nil) then FEvents.doOnWebSocketRequest(server, connection_id, client_address, request, callback);
+    if (FEvents <> nil) then
+      IServerEvents(FEvents).doOnWebSocketRequest(server, connection_id, client_address, request, callback);
   except
     on e : exception do
       if CustomExceptionHandler('TCustomServerHandler.OnWebSocketRequest', e) then raise;
@@ -351,7 +320,8 @@ end;
 procedure TCustomServerHandler.OnWebSocketConnected(const server: ICefServer; connection_id: Integer);
 begin
   try
-    if (FEvents <> nil) then FEvents.doOnWebSocketConnected(server, connection_id);
+    if (FEvents <> nil) then
+      IServerEvents(FEvents).doOnWebSocketConnected(server, connection_id);
   except
     on e : exception do
       if CustomExceptionHandler('TCustomServerHandler.OnWebSocketConnected', e) then raise;
@@ -361,7 +331,8 @@ end;
 procedure TCustomServerHandler.OnWebSocketMessage(const server: ICefServer; connection_id: Integer; const data: Pointer; data_size: NativeUInt);
 begin
   try
-    if (FEvents <> nil) then FEvents.doOnWebSocketMessage(server, connection_id, data, data_size);
+    if (FEvents <> nil) then
+      IServerEvents(FEvents).doOnWebSocketMessage(server, connection_id, data, data_size);
   except
     on e : exception do
       if CustomExceptionHandler('TCustomServerHandler.OnWebSocketMessage', e) then raise;

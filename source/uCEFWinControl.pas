@@ -1,50 +1,16 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uCEFWinControl;
+
+{$I cef.inc}
 
 {$IFDEF FPC}
   {$MODE OBJFPC}{$H+}
+  {$IFDEF MACOSX}
+    {$ModeSwitch objectivec1}
+  {$ENDIF}
 {$ENDIF}
 
-{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
+{$IFNDEF TARGET_64BITS}{$ALIGN ON}{$ENDIF}
 {$MINENUMSIZE 4}
-
-{$I cef.inc}
 
 interface
 
@@ -57,21 +23,44 @@ uses
     LCLProc, LCLType, LCLIntf, LResources, InterfaceBase,
     {$ENDIF}
   {$ENDIF}
+  {$IFDEF FPC}{$IFDEF MACOSX}
+  CocoaAll,
+  {$ENDIF}{$ENDIF}
   uCEFTypes, uCEFInterfaces;
 
 type
+  /// <summary>
+  /// Custom TWinControl used by CEF browsers.
+  /// </summary>
   TCEFWinControl = class(TWinControl)
     protected
-      function  GetChildWindowHandle : THandle; virtual;
+      function  GetChildWindowHandle : {$IFNDEF MSWINDOWS}{$IFDEF FPC}LclType.{$ENDIF}{$ENDIF}THandle; virtual;
       procedure Resize; override;
 
     public
+      /// <summary>
+      /// Take a snapshot of the browser contents into aBitmap. This function only works in Windows without hardware acceleration.
+      /// </summary>
       function    TakeSnapshot(var aBitmap : TBitmap) : boolean;
+      /// <summary>
+      /// Destroy the child windows created by the browser.
+      /// </summary>
       function    DestroyChildWindow : boolean;
+      /// <summary>
+      /// Exposes the CreateHandle procedure to create the Handle at any time.
+      /// </summary>
       procedure   CreateHandle; override;
+      /// <summary>
+      /// Invalidate the child windows created by the browser.
+      /// </summary>
       procedure   InvalidateChildren;
-      procedure   UpdateSize;
-
+      /// <summary>
+      /// Updates the size of the child windows created by the browser.
+      /// </summary>
+      procedure   UpdateSize; virtual;
+      /// <summary>
+      /// Handle of the first child window created by the browser.
+      /// </summary>
       property  ChildWindowHandle : THandle  read GetChildWindowHandle;
 
     published
@@ -85,7 +74,23 @@ type
       property  Enabled;
       property  ShowHint;
       property  Hint;
-      property  OnResize;
+      property  DragKind;
+      property  DragCursor;
+      property  DragMode;
+      property  OnResize;        
+      property  OnEnter;
+      property  OnExit;
+      property  OnDragDrop;
+      property  OnDragOver;
+      property  OnStartDrag;
+      property  OnEndDrag;
+      {$IFNDEF FPC}
+      property  OnCanResize;
+      {$ENDIF}
+      {$IFDEF DELPHI14_UP}
+      property  Touch;
+      property  OnGesture;
+      {$ENDIF}
       property  DoubleBuffered;
       {$IFDEF DELPHI12_UP}
       property  ParentDoubleBuffered;
@@ -97,7 +102,7 @@ implementation
 uses
   uCEFMiscFunctions, uCEFClient, uCEFConstants;
 
-function TCEFWinControl.GetChildWindowHandle : THandle;
+function TCEFWinControl.GetChildWindowHandle : {$IFNDEF MSWINDOWS}{$IFDEF FPC}LclType.{$ENDIF}{$ENDIF}THandle;
 begin
   {$IFDEF MSWINDOWS}
   if not(csDesigning in ComponentState) and HandleAllocated then
@@ -114,14 +119,18 @@ end;
 
 procedure TCEFWinControl.InvalidateChildren;
 begin
-  if HandleAllocated then RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN);
+  if HandleAllocated then
+    RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN);
 end;
 
 procedure TCEFWinControl.UpdateSize;
+{$IFDEF MSWINDOWS}
 var
   TempRect : TRect;
   TempHWND : THandle;
+{$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   TempHWND := ChildWindowHandle;
   if (TempHWND = 0) then exit;
 
@@ -130,28 +139,32 @@ begin
   SetWindowPos(TempHWND, 0,
                0, 0, TempRect.right, TempRect.bottom,
                SWP_NOZORDER);
+  {$ENDIF}
 end;
 
 function TCEFWinControl.TakeSnapshot(var aBitmap : TBitmap) : boolean;
+{$IFDEF MSWINDOWS}
 var
   TempHWND   : HWND;
   TempDC     : HDC;
   TempRect   : TRect;
   TempWidth  : Integer;
   TempHeight : Integer;
+{$ENDIF}
 begin
   Result := False;
-  if (aBitmap = nil) then exit;
+  {$IFDEF MSWINDOWS}
 
   TempHWND := ChildWindowHandle;
   if (TempHWND = 0) then exit;
-  {$IFDEF MSWINDOWS}
   {$IFDEF DELPHI16_UP}Winapi.{$ENDIF}Windows.GetClientRect(TempHWND, TempRect);
   TempDC     := GetDC(TempHWND);
   TempWidth  := TempRect.Right  - TempRect.Left;
   TempHeight := TempRect.Bottom - TempRect.Top;
 
-  aBitmap        := TBitmap.Create;
+  if (aBitmap = nil) then
+    aBitmap := TBitmap.Create;
+
   aBitmap.Height := TempHeight;
   aBitmap.Width  := TempWidth;
 
@@ -163,12 +176,29 @@ begin
 end;
 
 function TCEFWinControl.DestroyChildWindow : boolean;
+{$IFDEF MSWINDOWS}
 var
   TempHWND : HWND;
+{$ENDIF}
+{$IFDEF FPC}{$IFDEF MACOSX}
+var
+  ViewObj: NSObject;
+{$ENDIF}{$ENDIF}
 begin
   {$IFDEF MSWINDOWS}
   TempHWND := ChildWindowHandle;
   Result   := (TempHWND <> 0) and DestroyWindow(TempHWND);
+  {$ELSE}
+  Result := False;
+  {$IFDEF FPC}{$IFDEF MACOSX}
+  ViewObj := NSObject(ChildWindowHandle);
+  if ViewObj <> nil then begin
+    if ViewObj.isKindOfClass_(nsview) then begin
+      NSView(ViewObj).removeFromSuperview;
+      Result := True;
+    end;
+  end;
+  {$ENDIF}{$ENDIF}
   {$ENDIF}
 end;
 

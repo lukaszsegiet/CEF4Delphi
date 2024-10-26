@@ -12,7 +12,6 @@ object WebBrowserFrm: TWebBrowserFrm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnCloseQuery = FormCloseQuery
@@ -20,7 +19,6 @@ object WebBrowserFrm: TWebBrowserFrm
   OnDestroy = FormDestroy
   OnHide = FormHide
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object Panel1: TBufferPanel
     Left = 0
@@ -42,6 +40,7 @@ object WebBrowserFrm: TWebBrowserFrm
   end
   object chrmosr: TChromium
     OnTooltip = chrmosrTooltip
+    OnCursorChange = chrmosrCursorChange
     OnBeforePopup = chrmosrBeforePopup
     OnAfterCreated = chrmosrAfterCreated
     OnBeforeClose = chrmosrBeforeClose
@@ -51,7 +50,6 @@ object WebBrowserFrm: TWebBrowserFrm
     OnPopupShow = chrmosrPopupShow
     OnPopupSize = chrmosrPopupSize
     OnPaint = chrmosrPaint
-    OnCursorChange = chrmosrCursorChange
     Left = 24
     Top = 56
   end

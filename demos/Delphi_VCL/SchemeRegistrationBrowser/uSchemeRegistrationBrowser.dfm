@@ -10,12 +10,10 @@ object SchemeRegistrationBrowserFrm: TSchemeRegistrationBrowserFrm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object AddressBarPnl: TPanel
     Left = 0
@@ -51,10 +49,11 @@ object SchemeRegistrationBrowserFrm: TSchemeRegistrationBrowserFrm
       Align = alClient
       ItemIndex = 1
       TabOrder = 1
-      Text = 'hello://test.html'
+      Text = 'hello://localhost/test.html'
       Items.Strings = (
         'https://www.google.com'
-        'hello://test.html')
+        'hello://localhost/test.html'
+        'file://test.html')
     end
   end
   object CEFWindowParent1: TCEFWindowParent

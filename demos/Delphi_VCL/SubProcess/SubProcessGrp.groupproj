@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{545DD56C-93CD-4BCB-96BD-EA641E66C716}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="SimpleBrowser.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="SimpleBrowser_sp.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="SimpleBrowser">
+        <MSBuild Projects="SimpleBrowser.dproj"/>
+    </Target>
+    <Target Name="SimpleBrowser:Clean">
+        <MSBuild Projects="SimpleBrowser.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="SimpleBrowser:Make">
+        <MSBuild Projects="SimpleBrowser.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="SimpleBrowser_sp">
+        <MSBuild Projects="SimpleBrowser_sp.dproj"/>
+    </Target>
+    <Target Name="SimpleBrowser_sp:Clean">
+        <MSBuild Projects="SimpleBrowser_sp.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="SimpleBrowser_sp:Make">
+        <MSBuild Projects="SimpleBrowser_sp.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="SimpleBrowser;SimpleBrowser_sp"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="SimpleBrowser:Clean;SimpleBrowser_sp:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="SimpleBrowser:Make;SimpleBrowser_sp:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

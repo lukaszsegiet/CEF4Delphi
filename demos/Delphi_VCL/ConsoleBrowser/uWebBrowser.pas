@@ -1,43 +1,6 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uWebBrowser;
 
-{$I cef.inc}
+{$I ..\..\..\source\cef.inc}
 
 interface
 
@@ -50,7 +13,8 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, SyncObjs,
   Graphics, Controls, Forms, Dialogs, StdCtrls, ExtCtrls, AppEvnts,
   {$ENDIF}
-  uCEFChromium, uCEFTypes, uCEFInterfaces, uCEFConstants, uCEFBufferPanel;
+  uCEFChromium, uCEFTypes, uCEFInterfaces, uCEFConstants, uCEFBufferPanel,
+  uCEFChromiumCore;
 
 type
   TWebBrowserFrm = class(TForm)
@@ -80,7 +44,7 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 
     procedure chrmosrPaint(Sender: TObject; const browser: ICefBrowser; kind: TCefPaintElementType; dirtyRectsCount: NativeUInt; const dirtyRects: PCefRectArray; const buffer: Pointer; width, height: Integer);
-    procedure chrmosrCursorChange(Sender: TObject; const browser: ICefBrowser; cursor: HICON; cursorType: TCefCursorType; const customCursorInfo: PCefCursorInfo);
+    procedure chrmosrCursorChange(Sender: TObject; const browser: ICefBrowser; cursor_: TCefCursorHandle; cursorType: TCefCursorType; const customCursorInfo: PCefCursorInfo; var aResult: Boolean);
     procedure chrmosrGetViewRect(Sender: TObject; const browser: ICefBrowser; var rect: TCefRect);
     procedure chrmosrGetScreenPoint(Sender: TObject; const browser: ICefBrowser; viewX, viewY: Integer; var screenX, screenY: Integer; out Result: Boolean);
     procedure chrmosrGetScreenInfo(Sender: TObject; const browser: ICefBrowser; var screenInfo: TCefScreenInfo; out Result: Boolean);
@@ -148,7 +112,7 @@ uses
 // This is the destruction sequence in OSR mode :
 // 1- FormCloseQuery sets CanClose to the initial FCanClose value (False) and calls chrmosr.CloseBrowser(True).
 // 2- chrmosr.CloseBrowser(True) will trigger chrmosr.OnClose and we have to
-//    set "Result" to false and CEF3 will destroy the internal browser immediately.
+//    set "Result" to false and CEF will destroy the internal browser immediately.
 // 3- chrmosr.OnBeforeClose is triggered because the internal browser was destroyed.
 //    Now we set FCanClose to True and send WM_CLOSE to the form.
 
@@ -170,8 +134,8 @@ begin
           TempKeyEvent.unmodified_character    := #0;
           TempKeyEvent.focus_on_editable_field := ord(False);
 
+          CefCheckAltGrPressed(Msg.wParam, TempKeyEvent);
           chrmosr.SendKeyEvent(@TempKeyEvent);
-          Handled := True;
         end;
 
     WM_SYSKEYDOWN :
@@ -187,7 +151,6 @@ begin
           TempKeyEvent.focus_on_editable_field := ord(False);
 
           chrmosr.SendKeyEvent(@TempKeyEvent);
-          Handled := True;
         end;
 
     WM_SYSKEYUP :
@@ -203,7 +166,6 @@ begin
           TempKeyEvent.focus_on_editable_field := ord(False);
 
           chrmosr.SendKeyEvent(@TempKeyEvent);
-          Handled := True;
         end;
 
     WM_KEYDOWN :
@@ -235,7 +197,6 @@ begin
           TempKeyEvent.focus_on_editable_field := ord(False);
 
           chrmosr.SendKeyEvent(@TempKeyEvent);
-          Handled := True;
         end;
 
     WM_CHAR :
@@ -250,17 +211,17 @@ begin
           TempKeyEvent.unmodified_character    := #0;
           TempKeyEvent.focus_on_editable_field := ord(False);
 
+          CefCheckAltGrPressed(Msg.wParam, TempKeyEvent);
           chrmosr.SendKeyEvent(@TempKeyEvent);
-          Handled := True;
         end;
 
     WM_MOUSEWHEEL :
-      if Panel1.Focused and (GlobalCEFApp <> nil) then
+      if Panel1.Focused then
         begin
           TempMouseEvent.x         := Msg.lParam and $FFFF;
           TempMouseEvent.y         := Msg.lParam shr 16;
           TempMouseEvent.modifiers := GetCefMouseModifiers(Msg.wParam);
-          DeviceToLogical(TempMouseEvent, GlobalCEFApp.DeviceScaleFactor);
+          DeviceToLogical(TempMouseEvent, Panel1.ScreenScale);
           chrmosr.SendMouseWheelEvent(@TempMouseEvent, 0, int16(Msg.wParam shr 16));
         end;
   end;
@@ -268,7 +229,7 @@ end;
 
 procedure TWebBrowserFrm.GoBtnEnter(Sender: TObject);
 begin
-  chrmosr.SendFocusEvent(False);
+  chrmosr.SetFocus(False);
 end;
 
 procedure TWebBrowserFrm.chrmosrAfterCreated(Sender: TObject; const browser: ICefBrowser);
@@ -298,16 +259,18 @@ procedure TWebBrowserFrm.chrmosrBeforePopup(      Sender             : TObject;
                                             var   Result             : Boolean);
 begin
   // For simplicity, this demo blocks all popup windows and new tabs
-  Result := (targetDisposition in [WOD_NEW_FOREGROUND_TAB, WOD_NEW_BACKGROUND_TAB, WOD_NEW_POPUP, WOD_NEW_WINDOW]);
+  Result := (targetDisposition in [CEF_WOD_NEW_FOREGROUND_TAB, CEF_WOD_NEW_BACKGROUND_TAB, CEF_WOD_NEW_POPUP, CEF_WOD_NEW_WINDOW]);
 end;
 
 procedure TWebBrowserFrm.chrmosrCursorChange(      Sender           : TObject;
                                              const browser          : ICefBrowser;
-                                                   cursor           : HICON;
+                                                   cursor_          : TCefCursorHandle;
                                                    cursorType       : TCefCursorType;
-                                             const customCursorInfo : PCefCursorInfo);
+                                             const customCursorInfo : PCefCursorInfo;
+                                             var   aResult          : Boolean);
 begin
-  Panel1.Cursor := GefCursorToWindowsCursor(cursorType);
+  Panel1.Cursor := CefCursorToWindowsCursor(cursorType);
+  aResult       := True;
 end;
 
 procedure TWebBrowserFrm.chrmosrGetScreenInfo(      Sender     : TObject;
@@ -315,26 +278,23 @@ procedure TWebBrowserFrm.chrmosrGetScreenInfo(      Sender     : TObject;
                                               var   screenInfo : TCefScreenInfo;
                                               out   Result     : Boolean);
 var
-  TempRect : TCEFRect;
+  TempRect  : TCEFRect;
+  TempScale : single;
 begin
-  if (GlobalCEFApp <> nil) then
-    begin
-      TempRect.x      := 0;
-      TempRect.y      := 0;
-      TempRect.width  := DeviceToLogical(Panel1.Width,  GlobalCEFApp.DeviceScaleFactor);
-      TempRect.height := DeviceToLogical(Panel1.Height, GlobalCEFApp.DeviceScaleFactor);
+  TempScale       := Panel1.ScreenScale;
+  TempRect.x      := 0;
+  TempRect.y      := 0;
+  TempRect.width  := DeviceToLogical(Panel1.Width,  TempScale);
+  TempRect.height := DeviceToLogical(Panel1.Height, TempScale);
 
-      screenInfo.device_scale_factor := GlobalCEFApp.DeviceScaleFactor;
-      screenInfo.depth               := 0;
-      screenInfo.depth_per_component := 0;
-      screenInfo.is_monochrome       := Ord(False);
-      screenInfo.rect                := TempRect;
-      screenInfo.available_rect      := TempRect;
+  screenInfo.device_scale_factor := TempScale;
+  screenInfo.depth               := 0;
+  screenInfo.depth_per_component := 0;
+  screenInfo.is_monochrome       := Ord(False);
+  screenInfo.rect                := TempRect;
+  screenInfo.available_rect      := TempRect;
 
-      Result := True;
-    end
-   else
-    Result := False;
+  Result := True;
 end;
 
 procedure TWebBrowserFrm.chrmosrGetScreenPoint(      Sender  : TObject;
@@ -346,31 +306,28 @@ procedure TWebBrowserFrm.chrmosrGetScreenPoint(      Sender  : TObject;
                                                out   Result  : Boolean);
 var
   TempScreenPt, TempViewPt : TPoint;
+  TempScale : single;
 begin
-  if (GlobalCEFApp <> nil) then
-    begin
-      TempViewPt.x := LogicalToDevice(viewX, GlobalCEFApp.DeviceScaleFactor);
-      TempViewPt.y := LogicalToDevice(viewY, GlobalCEFApp.DeviceScaleFactor);
-      TempScreenPt := Panel1.ClientToScreen(TempViewPt);
-      screenX      := TempScreenPt.x;
-      screenY      := TempScreenPt.y;
-      Result       := True;
-    end
-   else
-    Result := False;
+  TempScale    := Panel1.ScreenScale;
+  TempViewPt.x := LogicalToDevice(viewX, TempScale);
+  TempViewPt.y := LogicalToDevice(viewY, TempScale);
+  TempScreenPt := Panel1.ClientToScreen(TempViewPt);
+  screenX      := TempScreenPt.x;
+  screenY      := TempScreenPt.y;
+  Result       := True;
 end;
 
 procedure TWebBrowserFrm.chrmosrGetViewRect(      Sender  : TObject;
                                             const browser : ICefBrowser;
                                             var   rect    : TCefRect);
+var
+  TempScale : single;
 begin
-  if (GlobalCEFApp <> nil) then
-    begin
-      rect.x      := 0;
-      rect.y      := 0;
-      rect.width  := DeviceToLogical(Panel1.Width,  GlobalCEFApp.DeviceScaleFactor);
-      rect.height := DeviceToLogical(Panel1.Height, GlobalCEFApp.DeviceScaleFactor);
-    end;
+  TempScale   := Panel1.ScreenScale;
+  rect.x      := 0;
+  rect.y      := 0;
+  rect.width  := DeviceToLogical(Panel1.Width,  TempScale);
+  rect.height := DeviceToLogical(Panel1.Height, TempScale);
 end;
 
 procedure TWebBrowserFrm.chrmosrPaint(      Sender          : TObject;
@@ -388,6 +345,7 @@ var
   TempWidth, TempHeight, TempScanlineSize : integer;
   TempBufferBits : Pointer;
   TempForcedResize : boolean;
+  TempSrcRect : TRect;
 begin
   try
     FResizeCS.Acquire;
@@ -464,7 +422,13 @@ begin
               end;
 
             if FShowPopup and (FPopUpBitmap <> nil) then
-              Panel1.BufferDraw(FPopUpRect.Left, FPopUpRect.Top, FPopUpBitmap);
+              begin
+                TempSrcRect := Rect(0, 0,
+                                    min(FPopUpRect.Right  - FPopUpRect.Left, FPopUpBitmap.Width),
+                                    min(FPopUpRect.Bottom - FPopUpRect.Top,  FPopUpBitmap.Height));
+
+                Panel1.BufferDraw(FPopUpBitmap, TempSrcRect, FPopUpRect);
+              end;
           end;
 
         Panel1.EndBufferDraw;
@@ -502,15 +466,12 @@ procedure TWebBrowserFrm.chrmosrPopupSize(      Sender  : TObject;
                                           const browser : ICefBrowser;
                                           const rect    : PCefRect);
 begin
-  if (GlobalCEFApp <> nil) then
-    begin
-      LogicalToDevice(rect^, GlobalCEFApp.DeviceScaleFactor);
+  LogicalToDevice(rect^, Panel1.ScreenScale);
 
-      FPopUpRect.Left   := rect.x;
-      FPopUpRect.Top    := rect.y;
-      FPopUpRect.Right  := rect.x + rect.width  - 1;
-      FPopUpRect.Bottom := rect.y + rect.height - 1;
-    end;
+  FPopUpRect.Left   := rect.x;
+  FPopUpRect.Top    := rect.y;
+  FPopUpRect.Right  := rect.x + rect.width  - 1;
+  FPopUpRect.Bottom := rect.y + rect.height - 1;
 end;
 
 procedure TWebBrowserFrm.chrmosrTooltip(      Sender  : TObject;
@@ -525,7 +486,7 @@ end;
 
 procedure TWebBrowserFrm.ComboBox1Enter(Sender: TObject);
 begin
-  chrmosr.SendFocusEvent(False);
+  chrmosr.SetFocus(False);
 end;
 
 function TWebBrowserFrm.getModifiers(Shift: TShiftState): TCefEventFlags;
@@ -598,6 +559,9 @@ end;
 
 procedure TWebBrowserFrm.FormAfterMonitorDpiChanged(Sender: TObject; OldDPI, NewDPI: Integer);
 begin
+  if (GlobalCEFApp <> nil) then
+    GlobalCEFApp.UpdateDeviceScaleFactor;
+
   if (chrmosr <> nil) then
     begin
       chrmosr.NotifyScreenInfoChanged;
@@ -644,7 +608,7 @@ end;
 
 procedure TWebBrowserFrm.FormHide(Sender: TObject);
 begin
-  chrmosr.SendFocusEvent(False);
+  chrmosr.SetFocus(False);
   chrmosr.WasHidden(True);
 end;
 
@@ -653,7 +617,7 @@ begin
   if chrmosr.Initialized then
     begin
       chrmosr.WasHidden(False);
-      chrmosr.SendFocusEvent(True);
+      chrmosr.SetFocus(True);
     end
    else
     begin
@@ -677,28 +641,25 @@ var
   TempEvent : TCefMouseEvent;
   TempTime  : integer;
 begin
-  if (GlobalCEFApp <> nil) and (chrmosr <> nil) then
+  Panel1.SetFocus;
+
+  if not(CancelPreviousClick(x, y, TempTime)) and (Button = FLastClickButton) then
+    inc(FLastClickCount)
+   else
     begin
-      Panel1.SetFocus;
-
-      if not(CancelPreviousClick(x, y, TempTime)) and (Button = FLastClickButton) then
-        inc(FLastClickCount)
-       else
-        begin
-          FLastClickPoint.x := x;
-          FLastClickPoint.y := y;
-          FLastClickCount   := 1;
-        end;
-
-      FLastClickTime      := TempTime;
-      FLastClickButton    := Button;
-
-      TempEvent.x         := X;
-      TempEvent.y         := Y;
-      TempEvent.modifiers := getModifiers(Shift);
-      DeviceToLogical(TempEvent, GlobalCEFApp.DeviceScaleFactor);
-      chrmosr.SendMouseClickEvent(@TempEvent, GetButton(Button), False, FLastClickCount);
+      FLastClickPoint.x := x;
+      FLastClickPoint.y := y;
+      FLastClickCount   := 1;
     end;
+
+  FLastClickTime      := TempTime;
+  FLastClickButton    := Button;
+
+  TempEvent.x         := X;
+  TempEvent.y         := Y;
+  TempEvent.modifiers := getModifiers(Shift);
+  DeviceToLogical(TempEvent, Panel1.ScreenScale);
+  chrmosr.SendMouseClickEvent(@TempEvent, GetButton(Button), False, FLastClickCount);
 end;
 
 procedure TWebBrowserFrm.Panel1MouseLeave(Sender: TObject);
@@ -707,19 +668,16 @@ var
   TempPoint : TPoint;
   TempTime  : integer;
 begin
-  if (GlobalCEFApp <> nil) and (chrmosr <> nil) then
-    begin
-      GetCursorPos(TempPoint);
-      TempPoint := Panel1.ScreenToclient(TempPoint);
+  GetCursorPos(TempPoint);
+  TempPoint := Panel1.ScreenToclient(TempPoint);
 
-      if CancelPreviousClick(TempPoint.x, TempPoint.y, TempTime) then InitializeLastClick;
+  if CancelPreviousClick(TempPoint.x, TempPoint.y, TempTime) then InitializeLastClick;
 
-      TempEvent.x         := TempPoint.x;
-      TempEvent.y         := TempPoint.y;
-      TempEvent.modifiers := GetCefMouseModifiers;
-      DeviceToLogical(TempEvent, GlobalCEFApp.DeviceScaleFactor);
-      chrmosr.SendMouseMoveEvent(@TempEvent, True);
-    end;
+  TempEvent.x         := TempPoint.x;
+  TempEvent.y         := TempPoint.y;
+  TempEvent.modifiers := GetCefMouseModifiers;
+  DeviceToLogical(TempEvent, Panel1.ScreenScale);
+  chrmosr.SendMouseMoveEvent(@TempEvent, True);
 end;
 
 procedure TWebBrowserFrm.Panel1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -727,30 +685,24 @@ var
   TempEvent : TCefMouseEvent;
   TempTime  : integer;
 begin
-  if (GlobalCEFApp <> nil) and (chrmosr <> nil) then
-    begin
-      if CancelPreviousClick(x, y, TempTime) then InitializeLastClick;
+  if CancelPreviousClick(x, y, TempTime) then InitializeLastClick;
 
-      TempEvent.x         := x;
-      TempEvent.y         := y;
-      TempEvent.modifiers := getModifiers(Shift);
-      DeviceToLogical(TempEvent, GlobalCEFApp.DeviceScaleFactor);
-      chrmosr.SendMouseMoveEvent(@TempEvent, False);
-    end;
+  TempEvent.x         := x;
+  TempEvent.y         := y;
+  TempEvent.modifiers := getModifiers(Shift);
+  DeviceToLogical(TempEvent, Panel1.ScreenScale);
+  chrmosr.SendMouseMoveEvent(@TempEvent, False);
 end;
 
 procedure TWebBrowserFrm.Panel1MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 var
   TempEvent : TCefMouseEvent;
 begin
-  if (GlobalCEFApp <> nil) and (chrmosr <> nil) then
-    begin
-      TempEvent.x         := X;
-      TempEvent.y         := Y;
-      TempEvent.modifiers := getModifiers(Shift);
-      DeviceToLogical(TempEvent, GlobalCEFApp.DeviceScaleFactor);
-      chrmosr.SendMouseClickEvent(@TempEvent, GetButton(Button), True, FLastClickCount);
-    end;
+  TempEvent.x         := X;
+  TempEvent.y         := Y;
+  TempEvent.modifiers := getModifiers(Shift);
+  DeviceToLogical(TempEvent, Panel1.ScreenScale);
+  chrmosr.SendMouseClickEvent(@TempEvent, GetButton(Button), True, FLastClickCount);
 end;
 
 procedure TWebBrowserFrm.Panel1Resize(Sender: TObject);
@@ -785,7 +737,7 @@ end;
 
 procedure TWebBrowserFrm.InitializeLastClick;
 begin
-  FLastClickCount   := 0;
+  FLastClickCount   := 1;
   FLastClickTime    := 0;
   FLastClickPoint.x := 0;
   FLastClickPoint.y := 0;
@@ -803,12 +755,12 @@ end;
 
 procedure TWebBrowserFrm.Panel1Enter(Sender: TObject);
 begin
-  chrmosr.SendFocusEvent(True);
+  chrmosr.SetFocus(True);
 end;
 
 procedure TWebBrowserFrm.Panel1Exit(Sender: TObject);
 begin
-  chrmosr.SendFocusEvent(False);
+  chrmosr.SetFocus(False);
 end;
 
 procedure TWebBrowserFrm.SnapshotBtnClick(Sender: TObject);
@@ -818,7 +770,7 @@ end;
 
 procedure TWebBrowserFrm.SnapshotBtnEnter(Sender: TObject);
 begin
-  chrmosr.SendFocusEvent(False);
+  chrmosr.SetFocus(False);
 end;
 
 procedure TWebBrowserFrm.Timer1Timer(Sender: TObject);

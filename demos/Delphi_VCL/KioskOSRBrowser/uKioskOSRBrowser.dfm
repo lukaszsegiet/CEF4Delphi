@@ -11,7 +11,6 @@ object Form1: TForm1
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poDefault
   WindowState = wsMaximized
   OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
@@ -20,13 +19,16 @@ object Form1: TForm1
   OnDestroy = FormDestroy
   OnHide = FormHide
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object Panel1: TBufferPanel
     Left = 0
     Top = 0
     Width = 1004
     Height = 526
+    OnCustomTouch = Panel1CustomTouch
+    OnPointerDown = Panel1PointerDown
+    OnPointerUp = Panel1PointerUp
+    OnPointerUpdate = Panel1PointerUpdate
     Align = alClient
     Caption = 'Panel1'
     TabOrder = 0
@@ -52,9 +54,11 @@ object Form1: TForm1
     Visible = False
   end
   object chrmosr: TChromium
+    OnCanFocus = chrmosrCanFocus
     OnBeforeContextMenu = chrmosrBeforeContextMenu
     OnContextMenuCommand = chrmosrContextMenuCommand
     OnTooltip = chrmosrTooltip
+    OnCursorChange = chrmosrCursorChange
     OnBeforePopup = chrmosrBeforePopup
     OnBeforeClose = chrmosrBeforeClose
     OnGetViewRect = chrmosrGetViewRect
@@ -63,21 +67,20 @@ object Form1: TForm1
     OnPopupShow = chrmosrPopupShow
     OnPopupSize = chrmosrPopupSize
     OnPaint = chrmosrPaint
-    OnCursorChange = chrmosrCursorChange
     OnVirtualKeyboardRequested = chrmosrVirtualKeyboardRequested
-    Left = 24
-    Top = 56
+    Left = 40
+    Top = 40
   end
   object AppEvents: TApplicationEvents
     OnMessage = AppEventsMessage
-    Left = 24
-    Top = 128
+    Left = 40
+    Top = 112
   end
   object Timer1: TTimer
     Enabled = False
     Interval = 300
     OnTimer = Timer1Timer
-    Left = 24
-    Top = 206
+    Left = 40
+    Top = 182
   end
 end

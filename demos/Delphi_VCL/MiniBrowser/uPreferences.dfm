@@ -4,7 +4,7 @@ object PreferencesFrm: TPreferencesFrm
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'Preferences'
-  ClientHeight = 363
+  ClientHeight = 388
   ClientWidth = 428
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -13,35 +13,21 @@ object PreferencesFrm: TPreferencesFrm
   Font.Name = 'Tahoma'
   Font.Style = []
   FormStyle = fsStayOnTop
-  OldCreateOrder = False
+  Padding.Left = 10
+  Padding.Top = 10
+  Padding.Right = 10
+  Padding.Bottom = 10
   Position = poScreenCenter
-  PixelsPerInch = 96
   TextHeight = 13
-  object Button1: TButton
-    Left = 232
-    Top = 330
-    Width = 75
-    Height = 25
-    Caption = 'Ok'
-    ModalResult = 1
-    TabOrder = 2
-  end
-  object Button2: TButton
-    Left = 345
-    Top = 330
-    Width = 75
-    Height = 25
-    Caption = 'Cancel'
-    ModalResult = 2
-    TabOrder = 3
-  end
   object GroupBox1: TGroupBox
-    Left = 8
-    Top = 8
-    Width = 412
-    Height = 223
+    Left = 10
+    Top = 10
+    Width = 408
+    Height = 250
+    Align = alTop
     Caption = ' Proxy '
     TabOrder = 0
+    ExplicitWidth = 404
     object ProxyTypeLbl: TLabel
       Left = 12
       Top = 27
@@ -90,6 +76,13 @@ object PreferencesFrm: TPreferencesFrm
       Width = 50
       Height = 13
       Caption = 'ByPass list'
+    end
+    object MaxConnectionsPerProxyLbl: TLabel
+      Left = 12
+      Top = 218
+      Width = 154
+      Height = 13
+      Caption = 'Maximum connections per proxy'
     end
     object ProxyTypeCbx: TComboBox
       Left = 108
@@ -167,14 +160,26 @@ object PreferencesFrm: TPreferencesFrm
         'SOCKS4'
         'SOCKS5')
     end
+    object MaxConnectionsPerProxyEdt: TSpinEdit
+      Left = 184
+      Top = 215
+      Width = 216
+      Height = 22
+      MaxValue = 99
+      MinValue = 7
+      TabOrder = 8
+      Value = 32
+    end
   end
   object GroupBox2: TGroupBox
-    Left = 8
-    Top = 237
-    Width = 412
+    Left = 10
+    Top = 260
+    Width = 408
     Height = 84
+    Align = alTop
     Caption = ' Custom header '
     TabOrder = 1
+    ExplicitWidth = 404
     object HeaderNameLbl: TLabel
       Left = 12
       Top = 26
@@ -202,6 +207,40 @@ object PreferencesFrm: TPreferencesFrm
       Width = 292
       Height = 21
       TabOrder = 1
+    end
+  end
+  object Panel1: TPanel
+    Left = 10
+    Top = 353
+    Width = 408
+    Height = 25
+    Align = alBottom
+    BevelOuter = bvNone
+    Padding.Left = 30
+    Padding.Right = 30
+    TabOrder = 2
+    ExplicitTop = 352
+    ExplicitWidth = 404
+    object Button1: TButton
+      Left = 30
+      Top = 0
+      Width = 120
+      Height = 25
+      Align = alLeft
+      Caption = 'Ok'
+      ModalResult = 1
+      TabOrder = 0
+    end
+    object Button2: TButton
+      Left = 258
+      Top = 0
+      Width = 120
+      Height = 25
+      Align = alRight
+      Caption = 'Cancel'
+      ModalResult = 2
+      TabOrder = 1
+      ExplicitLeft = 254
     end
   end
 end

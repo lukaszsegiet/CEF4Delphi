@@ -1,41 +1,6 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Díaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uURLRequest;
+
+{$I ..\..\..\source\cef.inc}
 
 interface
 
@@ -55,14 +20,31 @@ const
 
 type
   TURLRequestFrm = class(TForm)
-    Edit1: TEdit;
-    Label1: TLabel;
-    DownloadBtn: TButton;
     StatusBar1: TStatusBar;
     SaveDialog1: TSaveDialog;
     CEFUrlRequestClientComponent1: TCEFUrlRequestClientComponent;
+    GETGbx: TGroupBox;
+    DownloadBtn: TButton;
+    GetURLEdt: TEdit;
+    Label1: TLabel;
+    POSTGbx: TGroupBox;
+    PostURLEdt: TEdit;
+    Label2: TLabel;
+    SendPostReqBtn: TButton;
+    GroupBox1: TGroupBox;
+    Label3: TLabel;
+    PostParam1NameEdt: TEdit;
+    Label4: TLabel;
+    PostParam1ValueEdt: TEdit;
+    GroupBox2: TGroupBox;
+    Label5: TLabel;
+    Label6: TLabel;
+    PostParam2NameEdt: TEdit;
+    PostParam2ValueEdt: TEdit;
+    Memo1: TMemo;
 
     procedure DownloadBtnClick(Sender: TObject);
+    procedure SendPostReqBtnClick(Sender: TObject);
 
     procedure FormDestroy(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -72,12 +54,18 @@ type
     procedure CEFUrlRequestClientComponent1DownloadProgress(Sender: TObject; const request: ICefUrlRequest; current, total: Int64);
     procedure CEFUrlRequestClientComponent1RequestComplete(Sender: TObject; const request: ICefUrlRequest);
     procedure CEFUrlRequestClientComponent1CreateURLRequest(Sender: TObject);
+
   private
-    FStream         : TMemoryStream;
+    FMemStream      : TMemoryStream;
     FCanClose       : boolean;
     FClosing        : boolean;
-    FDownloading    : boolean;
+    FBusy           : boolean;
     FPendingURL     : string;
+    FSendingGET     : boolean;
+    FSendingPOST    : boolean;
+
+    procedure CreateGETRequest;
+    procedure CreatePOSTRequest;
 
     procedure URLRequestSuccessMsg(var aMessage : TMessage); message URLREQUEST_SUCCESS;
     procedure URLRequestErrorMsg(var aMessage : TMessage); message URLREQUEST_ERROR;
@@ -87,6 +75,8 @@ type
 
 var
   URLRequestFrm: TURLRequestFrm;
+
+procedure CreateGlobalCEFApp;
 
 implementation
 
@@ -107,10 +97,18 @@ implementation
 // 1- Set CanClose to FALSE in the TForm.OnCloseQuery event and set FClosing to TRUE.
 // 2- The next time TCEFUrlRequestClientComponent.OnDownloadProgress is executed we call request.Cancel, which triggers the
 //    TCEFUrlRequestClientComponent.OnRequestComplete event.
-// 3- in the TCEFUrlRequestClientComponent.OnRequestComplete event we set FCanClose to TRUE and send WM_CLOSE to the form.
+// 3- The TCEFUrlRequestClientComponent.OnRequestComplete event sets FCanClose := True and sends WM_CLOSE to the form.
 
 uses
-  uCEFMiscFunctions, uCEFTypes, uCEFPostData, uCEFPostDataElement, uCEFConstants;
+  ShellApi,
+  uCEFApplication, uCEFMiscFunctions, uCEFTypes, uCEFPostData, uCEFPostDataElement, uCEFConstants;
+
+procedure CreateGlobalCEFApp;
+begin
+  GlobalCEFApp                 := TCefApplication.Create;
+  //GlobalCEFApp.LogFile          := 'cef.log';
+  //GlobalCEFApp.LogSeverity      := LOGSEVERITY_VERBOSE;
+end;
 
 procedure TURLRequestFrm.DownloadBtnClick(Sender: TObject);
 var
@@ -118,7 +116,7 @@ var
   TempParts : TUrlParts;
   i : integer;
 begin
-  TempURL := trim(Edit1.Text);
+  TempURL := trim(GetURLEdt.Text);
 
   if (length(TempURL) > 0) then
     begin
@@ -145,9 +143,13 @@ begin
          (length(SaveDialog1.FileName) > 0) then
         begin
           FPendingURL               := TempURL;
-          DownloadBtn.Enabled       := False;
+          GETGbx.Enabled            := False;
+          POSTGbx.Enabled           := False;
           StatusBar1.Panels[0].Text := 'Downloading...';
-          FStream.Clear;
+          FMemStream.Clear;
+
+          FSendingPOST := False;
+          FSendingGET  := True;
 
           // TCEFUrlRequestClientComponent.AddURLRequest will trigger the
           // TCEFUrlRequestClientComponent.OnCreateURLRequest event in the right
@@ -159,53 +161,46 @@ end;
 
 procedure TURLRequestFrm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
-  CanClose := FCanClose or not(FDownloading);
+  CanClose := FCanClose or not(FBusy);
   FClosing := True;
 end;
 
 procedure TURLRequestFrm.FormCreate(Sender: TObject);
 begin
-  FStream      := TMemoryStream.Create;
+  FMemStream   := TMemoryStream.Create;
   FCanClose    := False;
   FClosing     := False;
-  FDownloading := False;
+  FBusy        := False;
+  FSendingGET  := False;
+  FSendingPOST := False;
 end;
 
 procedure TURLRequestFrm.FormDestroy(Sender: TObject);
 begin
-  if (FStream <> nil) then FreeAndNil(FStream);
+  if (FMemStream <> nil) then FreeAndNil(FMemStream);
 end;
 
 procedure TURLRequestFrm.CEFUrlRequestClientComponent1CreateURLRequest(Sender: TObject);
+begin
+  if FSendingGET then
+    CreateGETRequest
+   else
+    if FSendingPOST then
+      CreatePOSTRequest;
+end;
+
+procedure TURLRequestFrm.CreateGETRequest;
 var
   TempRequest  : ICefRequest;
-  // TempPostData : ICefPostData;
-  // TempElement  : ICefPostDataElement;
 begin
   try
     if (length(FPendingURL) > 0) then
       begin
-        FDownloading       := True;
-
-        // GET request example
-        // -------------------
+        FBusy              := True;
         TempRequest        := TCefRequestRef.New;
         TempRequest.URL    := FPendingURL;
         TempRequest.Method := 'GET';
         TempRequest.Flags  := UR_FLAG_ALLOW_STORED_CREDENTIALS;
-
-        // POST request example
-        // --------------------
-        // TempElement             := TCefPostDataElementOwn.Create(True);
-        // TempElement.SetToFile('c:\myfile.txt');
-        //
-        // TempPostData            := TCefPostDataRef.New;
-        // TempPostData.AddElement := TempElement;
-        //
-        // TempRequest             := TCefRequestRef.New;
-        // TempRequest.URL         := FPendingURL;
-        // TempRequest.Method      := 'POST';
-        // TempRequest.PostData    := TempPostData;
 
         // Set the "client" parameter to the TCEFUrlRequestClientComponent.Client property
         // to use the TCEFUrlRequestClientComponent events.
@@ -217,6 +212,59 @@ begin
   end;
 end;
 
+procedure TURLRequestFrm.CreatePOSTRequest;
+var
+  TempRequest    : ICefRequest;
+  TempPostData   : ICefPostData;
+  TempElement    : ICefPostDataElement;
+  TempParams     : AnsiString;
+begin
+  try
+    if (length(FPendingURL) > 0) then
+      begin
+        FBusy              := True;
+
+        TempRequest        := TCefRequestRef.New;
+        TempRequest.URL    := FPendingURL;
+        TempRequest.Method := 'POST';
+        TempRequest.Flags  := UR_FLAG_ALLOW_STORED_CREDENTIALS;
+
+        // TODO : The parameters should be converted to ansistring and encoded
+        if (length(PostParam1NameEdt.Text) > 0) and (length(PostParam1ValueEdt.Text) > 0) then
+          TempParams := PostParam1NameEdt.Text + '=' + PostParam1ValueEdt.Text;
+
+        if (length(PostParam2NameEdt.Text) > 0) and (length(PostParam2ValueEdt.Text) > 0) then
+          begin
+            if (length(TempParams) > 0) then
+              TempParams := TempParams + '&' + PostParam2NameEdt.Text + '=' + PostParam2ValueEdt.Text
+             else
+              TempParams := PostParam2NameEdt.Text + '=' + PostParam2ValueEdt.Text;
+          end;
+
+
+        if (length(TempParams) > 0) then
+          begin
+            TempElement := TCefPostDataElementRef.New;
+            TempElement.SetToBytes(length(TempParams), @TempParams[1]);
+
+            TempPostData := TCefPostDataRef.New;
+            TempPostData.AddElement(TempElement);
+
+            TempRequest.PostData := TempPostData;
+
+            // Set the "client" parameter to the TCEFUrlRequestClientComponent.Client property
+            // to use the TCEFUrlRequestClientComponent events.
+            // The "requestContext" parameter can be nil to use the global request context.
+            TCefUrlRequestRef.New(TempRequest, CEFUrlRequestClientComponent1.Client, nil);
+          end;
+      end;
+  finally
+    TempElement  := nil;
+    TempPostData := nil;
+    TempRequest  := nil;
+  end;
+end;
+
 procedure TURLRequestFrm.CEFUrlRequestClientComponent1DownloadData(Sender: TObject; const request: ICefUrlRequest; data: Pointer; dataLength: NativeUInt);
 begin
   try
@@ -224,7 +272,7 @@ begin
       request.Cancel
      else
       if (data <> nil) and (dataLength > 0) then
-        FStream.WriteBuffer(data^, dataLength);
+        FMemStream.WriteBuffer(data^, dataLength);
   except
     on e : exception do
       if CustomExceptionHandler('TURLRequestFrm.CEFUrlRequestClientComponent1DownloadData', e) then raise;
@@ -236,15 +284,18 @@ begin
   if FClosing then
     request.Cancel
    else
-    if (total > 0) then
-      StatusBar1.Panels[0].Text := 'Downloading : ' + inttostr(round((current / total) * 100)) + ' %'
-     else
-      StatusBar1.Panels[0].Text := 'Downloading : ' + inttostr(current) + ' bytes';
+    if FSendingGET then
+      begin
+        if (total > 0) then
+          StatusBar1.Panels[0].Text := 'Downloading : ' + inttostr(round((current / total) * 100)) + ' %'
+         else
+          StatusBar1.Panels[0].Text := 'Downloading : ' + inttostr(current) + ' bytes';
+      end;
 end;
 
 procedure TURLRequestFrm.CEFUrlRequestClientComponent1RequestComplete(Sender: TObject; const request: ICefUrlRequest);
 begin
-  FDownloading := False;
+  FBusy := False;
 
   // Use request.response here to get a ICefResponse interface with all the response headers, status, error code, etc.
 
@@ -261,27 +312,78 @@ begin
 end;
 
 procedure TURLRequestFrm.URLRequestSuccessMsg(var aMessage : TMessage);
+var
+  TempMessage : string;
 begin
-  DownloadBtn.Enabled       := True;
-  StatusBar1.Panels[0].Text := 'Download complete!';
-  SaveStreamToFile;
+  if FSendingGET then
+    begin
+      TempMessage := 'Download complete!';
+      SaveStreamToFile;
+    end
+   else
+    if FSendingPOST then
+      begin
+        TempMessage := 'Parameters sent!';
+        FMemStream.Position := 0;
+        Memo1.Lines.LoadFromStream(FMemStream);
+      end;
+
+  StatusBar1.Panels[0].Text := TempMessage;
+  showmessage(TempMessage);
+
+  GETGbx.Enabled  := True;
+  POSTGbx.Enabled := True;
+  FSendingGET     := False;
+  FSendingPOST    := False;
 end;
 
 procedure TURLRequestFrm.URLRequestErrorMsg(var aMessage : TMessage);
+var
+  TempMessage : string;
 begin
-  DownloadBtn.Enabled       := True;
-  StatusBar1.Panels[0].Text := 'Download error : ' + inttostr(aMessage.lParam);
+  TempMessage               := 'Error code : ' + inttostr(aMessage.lParam);
+  StatusBar1.Panels[0].Text := TempMessage;
+  showmessage(TempMessage);
+
+  GETGbx.Enabled  := True;
+  POSTGbx.Enabled := True;
+  FSendingGET     := False;
+  FSendingPOST    := False;
 end;
 
 procedure TURLRequestFrm.SaveStreamToFile;
 begin
   try
-    FStream.SaveToFile(SaveDialog1.FileName);
-    FStream.Clear;
+    FMemStream.SaveToFile(SaveDialog1.FileName);
+    FMemStream.Clear;
   except
     on e : exception do
       if CustomExceptionHandler('TURLRequestFrm.SaveStreamToFile', e) then raise;
   end;
+end;
+
+procedure TURLRequestFrm.SendPostReqBtnClick(Sender: TObject);
+var
+  TempURL : string;
+begin
+  TempURL := trim(PostURLEdt.Text);
+
+  if (length(TempURL) > 0) then
+    begin
+      FPendingURL               := TempURL;
+      GETGbx.Enabled            := False;
+      POSTGbx.Enabled           := False;
+      StatusBar1.Panels[0].Text := 'Sending...';
+      FMemStream.Clear;
+
+      FSendingPOST := True;
+      FSendingGET  := False;
+
+      // TCEFUrlRequestClientComponent.AddURLRequest will trigger the
+      // TCEFUrlRequestClientComponent.OnCreateURLRequest event in the right
+      // thread where you can create your custom requests.
+      CEFUrlRequestClientComponent1.AddURLRequest;
+    end;
 end;
 
 end.

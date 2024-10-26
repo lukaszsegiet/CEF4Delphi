@@ -10,13 +10,11 @@ object Form1: TForm1
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
     Left = 0
@@ -60,14 +58,9 @@ object Form1: TForm1
       Align = alClient
       ItemIndex = 0
       TabOrder = 1
-      Text = 
-        'https://www.w3schools.com/php/showphp.asp?filename=demo_form_pos' +
-        't'
+      Text = 'https://tryphp.w3schools.com/showphp.php?filename=demo_form_post'
       Items.Strings = (
-        
-          'https://www.w3schools.com/php/showphp.asp?filename=demo_form_pos' +
-          't'
-        'https://www.w3schools.com/php/showphp.asp?filename=demo_form_get')
+        'https://tryphp.w3schools.com/showphp.php?filename=demo_form_post')
     end
   end
   object CEFWindowParent1: TCEFWindowParent
@@ -98,7 +91,6 @@ object Form1: TForm1
     OnBeforePopup = Chromium1BeforePopup
     OnAfterCreated = Chromium1AfterCreated
     OnBeforeClose = Chromium1BeforeClose
-    OnClose = Chromium1Close
     OnBeforeResourceLoad = Chromium1BeforeResourceLoad
     Left = 56
     Top = 152

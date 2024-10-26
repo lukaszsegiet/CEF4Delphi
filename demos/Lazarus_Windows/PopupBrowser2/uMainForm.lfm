@@ -1,0 +1,76 @@
+object MainForm: TMainForm
+  Left = 679
+  Height = 624
+  Top = 160
+  Width = 1038
+  Caption = 'Initializing browser. Please wait...'
+  ClientHeight = 624
+  ClientWidth = 1038
+  Color = clBtnFace
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  OnCloseQuery = FormCloseQuery
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnShow = FormShow
+  Position = poScreenCenter
+  object AddressPnl: TPanel
+    Left = 0
+    Height = 21
+    Top = 0
+    Width = 1038
+    Align = alTop
+    BevelOuter = bvNone
+    ClientHeight = 21
+    ClientWidth = 1038
+    Enabled = False
+    ParentBackground = False
+    TabOrder = 0
+    object AddressEdt: TEdit
+      Left = 0
+      Height = 21
+      Top = 0
+      Width = 1007
+      Align = alClient
+      TabOrder = 0
+      Text = 'file:///PopupBrowser.html'
+    end
+    object GoBtn: TButton
+      Left = 1007
+      Height = 21
+      Top = 0
+      Width = 31
+      Align = alRight
+      Caption = 'Go'
+      TabOrder = 1
+      OnClick = GoBtnClick
+    end
+  end
+  object CEFWindowParent1: TCEFWindowParent
+    Left = 0
+    Height = 603
+    Top = 21
+    Width = 1038
+    Align = alClient
+    TabOrder = 1
+  end
+  object Timer1: TTimer
+    Enabled = False
+    Interval = 300
+    OnTimer = Timer1Timer
+    Left = 56
+    Top = 88
+  end
+  object Chromium1: TChromium
+    OnBeforePopup = Chromium1BeforePopup
+    OnAfterCreated = Chromium1AfterCreated
+    OnBeforeClose = Chromium1BeforeClose
+    Left = 56
+    Top = 152
+  end
+  object ApplicationProperties1: TApplicationProperties
+    Left = 56
+    Top = 216
+  end
+end

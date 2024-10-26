@@ -2,27 +2,25 @@ object MiniBrowserFrm: TMiniBrowserFrm
   Left = 0
   Top = 0
   Caption = 'MiniBrowser'
-  ClientHeight = 712
-  ClientWidth = 1184
+  ClientHeight = 711
+  ClientWidth = 1180
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
-    Left = 1179
+    Left = 1175
     Top = 41
     Width = 5
-    Height = 652
+    Height = 651
     Align = alRight
     Visible = False
     ExplicitLeft = 0
@@ -32,7 +30,7 @@ object MiniBrowserFrm: TMiniBrowserFrm
   object NavControlPnl: TPanel
     Left = 0
     Top = 0
-    Width = 1184
+    Width = 1180
     Height = 41
     Align = alTop
     BevelOuter = bvNone
@@ -110,7 +108,7 @@ object MiniBrowserFrm: TMiniBrowserFrm
     object URLEditPnl: TPanel
       Left = 133
       Top = 0
-      Width = 978
+      Width = 974
       Height = 41
       Align = alClient
       BevelOuter = bvNone
@@ -120,7 +118,7 @@ object MiniBrowserFrm: TMiniBrowserFrm
       object URLCbx: TComboBox
         Left = 0
         Top = 9
-        Width = 978
+        Width = 974
         Height = 21
         Align = alClient
         ItemIndex = 0
@@ -137,34 +135,48 @@ object MiniBrowserFrm: TMiniBrowserFrm
           
             'https://www.w3schools.com/jsref/tryit.asp?filename=tryjsref_styl' +
             'e_backgroundcolor'
+          
+            'https://www.w3schools.com/Tags/tryit.asp?filename=tryhtml_iframe' +
+            '_name'
+          
+            'https://www.w3schools.com/tags/tryit.asp?filename=tryhtml5_input' +
+            '_type_file'
+          
+            'https://www.w3schools.com/jsref/tryit.asp?filename=tryjsref_stat' +
+            'e_throw_error'
+          'https://www.htmlquick.com/es/reference/tags/input-file.html'
+          
+            'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/' +
+            'file'
+          
+            'https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElemen' +
+            't/webkitdirectory'
           'https://www.w3schools.com/html/html5_video.asp'
-          'http://www.adobe.com/software/flash/about/'
-          'http://isflashinstalled.com/'
-          'https://helpx.adobe.com/flash-player.html'
-          'https://www.ultrasounds.com/'
-          'https://www.whatismybrowser.com/detect/is-flash-installed'
           'http://html5test.com/'
           
             'https://webrtc.github.io/samples/src/content/devices/input-outpu' +
             't/'
           'https://test.webrtc.org/'
-          'https://www.w3schools.com/'
+          'https://www.browserleaks.com/webrtc'
+          'https://shaka-player-demo.appspot.com/demo/'
           'http://webglsamples.org/'
           'https://get.webgl.org/'
           'https://www.briskbard.com'
           'https://www.youtube.com'
           'https://html5demos.com/drag/'
-          
-            'https://developers.google.com/maps/documentation/javascript/exam' +
-            'ples/streetview-embed?hl=fr'
-          
-            'https://www.w3schools.com/Tags/tryit.asp?filename=tryhtml_iframe' +
-            '_name'
-          
-            'http://www-db.deis.unibo.it/courses/TW/DOCS/w3schools/html/tryit' +
-            '.asp-filename=tryhtml5_html_manifest.html'
-          'https://www.browserleaks.com/webrtc'
           'https://frames-per-second.appspot.com/'
+          
+            'https://www.sede.fnmt.gob.es/certificados/persona-fisica/verific' +
+            'ar-estado'
+          'https://www.kirupa.com/html5/accessing_your_webcam_in_html5.htm'
+          'https://www.xdumaine.com/enumerateDevices/test/'
+          
+            'https://dagrs.berkeley.edu/sites/default/files/2020-01/sample.pd' +
+            'f'
+          'https://codepen.io/udaymanvar/pen/MWaePBY'
+          
+            'https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/acc' +
+            'ept'
           'chrome://version/'
           'chrome://net-internals/'
           'chrome://tracing/'
@@ -181,11 +193,12 @@ object MiniBrowserFrm: TMiniBrowserFrm
           'chrome://gpuclean'
           'chrome://gpucrash'
           'chrome://gpuhang'
-          'chrome://extensions-support')
+          'chrome://extensions-support'
+          'chrome://process-internals')
       end
     end
     object ConfigPnl: TPanel
-      Left = 1111
+      Left = 1107
       Top = 0
       Width = 73
       Height = 41
@@ -227,25 +240,25 @@ object MiniBrowserFrm: TMiniBrowserFrm
   object CEFWindowParent1: TCEFWindowParent
     Left = 0
     Top = 41
-    Width = 1179
-    Height = 652
+    Width = 1175
+    Height = 651
     Align = alClient
     TabStop = True
     TabOrder = 0
   end
   object DevTools: TCEFWindowParent
-    Left = 1184
+    Left = 1180
     Top = 41
     Width = 0
-    Height = 652
+    Height = 651
     Align = alRight
     TabOrder = 2
     Visible = False
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 693
-    Width = 1184
+    Top = 692
+    Width = 1180
     Height = 19
     Panels = <
       item
@@ -259,6 +272,9 @@ object MiniBrowserFrm: TMiniBrowserFrm
       end
       item
         Width = 100
+      end
+      item
+        Width = 50
       end>
   end
   object Chromium1: TChromium
@@ -268,6 +284,8 @@ object MiniBrowserFrm: TMiniBrowserFrm
     OnResolvedHostAvailable = Chromium1ResolvedHostAvailable
     OnNavigationVisitorResultAvailable = Chromium1NavigationVisitorResultAvailable
     OnDownloadImageFinished = Chromium1DownloadImageFinished
+    OnCookiesFlushed = Chromium1CookiesFlushed
+    OnZoomPctAvailable = Chromium1ZoomPctAvailable
     OnRenderCompMsg = Chromium1RenderCompMsg
     OnLoadEnd = Chromium1LoadEnd
     OnLoadError = Chromium1LoadError
@@ -280,15 +298,22 @@ object MiniBrowserFrm: TMiniBrowserFrm
     OnTitleChange = Chromium1TitleChange
     OnFullScreenModeChange = Chromium1FullScreenModeChange
     OnStatusMessage = Chromium1StatusMessage
+    OnConsoleMessage = Chromium1ConsoleMessage
     OnLoadingProgressChange = Chromium1LoadingProgressChange
+    OnMediaAccessChange = Chromium1MediaAccessChange
+    OnCanDownload = Chromium1CanDownload
     OnBeforeDownload = Chromium1BeforeDownload
     OnDownloadUpdated = Chromium1DownloadUpdated
     OnAfterCreated = Chromium1AfterCreated
     OnBeforeClose = Chromium1BeforeClose
-    OnClose = Chromium1Close
     OnCertificateError = Chromium1CertificateError
+    OnSelectClientCertificate = Chromium1SelectClientCertificate
     OnBeforeResourceLoad = Chromium1BeforeResourceLoad
     OnResourceResponse = Chromium1ResourceResponse
+    OnFileDialog = Chromium1FileDialog
+    OnDevToolsMethodResult = Chromium1DevToolsMethodResult
+    OnChromeCommand = Chromium1ChromeCommand
+    OnRequestMediaAccessPermission = Chromium1RequestMediaAccessPermission
     Left = 32
     Top = 224
   end
@@ -311,6 +336,10 @@ object MiniBrowserFrm: TMiniBrowserFrm
       Caption = 'Open file with a DATA URL...'
       OnClick = OpenfilewithaDAT1Click
     end
+    object SaveasMHTML1: TMenuItem
+      Caption = 'Save as MHTML...'
+      OnClick = SaveasMHTML1Click
+    end
     object N2: TMenuItem
       Caption = '-'
     end
@@ -319,7 +348,7 @@ object MiniBrowserFrm: TMiniBrowserFrm
       OnClick = Print1Click
     end
     object PrintinPDF1: TMenuItem
-      Caption = 'Print to PDF'
+      Caption = 'Print to PDF file...'
       OnClick = PrintinPDF1Click
     end
     object N3: TMenuItem
@@ -359,12 +388,52 @@ object MiniBrowserFrm: TMiniBrowserFrm
       Caption = 'Simulate keyboard presses'
       OnClick = Simulatekeyboardpresses1Click
     end
+    object Acceptlanguage1: TMenuItem
+      Caption = 'Accept language...'
+      OnClick = Acceptlanguage1Click
+    end
+    object Flushcookies1: TMenuItem
+      Caption = 'Flush cookies'
+      OnClick = Flushcookies1Click
+    end
+    object FindText1: TMenuItem
+      Caption = 'Find text...'
+      OnClick = FindText1Click
+    end
+    object Clearcache1: TMenuItem
+      Caption = 'Clear cache'
+      OnClick = Clearcache1Click
+    end
+    object ClearallstorageforcurrentURL1: TMenuItem
+      Caption = 'Clear all storage for current URL'
+      OnClick = ClearallstorageforcurrentURL1Click
+    end
+    object akescreenshot1: TMenuItem
+      Caption = 'Take screenshot'
+      OnClick = akescreenshot1Click
+    end
+    object Useragent1: TMenuItem
+      Caption = 'User agent...'
+      OnClick = Useragent1Click
+    end
+    object Allowdownloads1: TMenuItem
+      Caption = 'Allow downloads'
+      OnClick = Allowdownloads1Click
+    end
+    object Toggleaudio1: TMenuItem
+      Caption = 'Toggle audio'
+      OnClick = Toggleaudio1Click
+    end
     object N5: TMenuItem
       Caption = '-'
     end
     object Memoryinfo1: TMenuItem
       Caption = 'Memory info...'
       OnClick = Memoryinfo1Click
+    end
+    object CEFinfo1: TMenuItem
+      Caption = 'CEF info...'
+      OnClick = CEFinfo1Click
     end
   end
   object SaveDialog1: TSaveDialog

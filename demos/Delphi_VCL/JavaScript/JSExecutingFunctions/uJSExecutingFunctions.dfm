@@ -10,13 +10,11 @@ object JSExecutingFunctionsFrm: TJSExecutingFunctionsFrm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object NavControlPnl: TPanel
     Left = 0
@@ -68,7 +66,6 @@ object JSExecutingFunctionsFrm: TJSExecutingFunctionsFrm
     OnBeforePopup = Chromium1BeforePopup
     OnAfterCreated = Chromium1AfterCreated
     OnBeforeClose = Chromium1BeforeClose
-    OnClose = Chromium1Close
     Left = 32
     Top = 224
   end

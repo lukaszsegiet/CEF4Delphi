@@ -1,43 +1,6 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uMainForm;
 
-{$I cef.inc}
+{$I ..\..\..\source\cef.inc}
 
 interface
 
@@ -50,7 +13,7 @@ uses
   Controls, Forms, Dialogs, StdCtrls, ExtCtrls,
   {$ENDIF}
   uCEFChromium, uCEFWindowParent, uCEFChromiumWindow, uCEFInterfaces, uCustomResourceHandler,
-  uCEFConstants, uCEFTypes, uCEFWinControl;
+  uCEFConstants, uCEFTypes, uCEFWinControl, uCEFLinkedWinControlBase;
 
 type
   TMainForm = class(TForm)
@@ -63,7 +26,6 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormShow(Sender: TObject);
-    procedure FormClose(Sender: TObject; var Action: TCloseAction);
 
     procedure Button1Click(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -108,12 +70,11 @@ uses
 // =================
 // 1. The FormCloseQuery event sets CanClose to False and calls TChromiumWindow.CloseBrowser, which triggers the TChromiumWindow.OnClose event.
 // 2. The TChromiumWindow.OnClose event calls TChromiumWindow.DestroyChildWindow which triggers the TChromiumWindow.OnBeforeClose event.
-// 3. TChromiumWindow.OnBeforeClose sets FCanClose to True and closes the form.
+// 3. TChromiumWindow.OnBeforeClose sets FCanClose := True and sends WM_CLOSE to the form.
 
 procedure CreateGlobalCEFApp;
 begin
   GlobalCEFApp                  := TCefApplication.Create;
-  GlobalCEFApp.DisableFeatures  := 'NetworkService,OutOfBlinkCors';
   //GlobalCEFApp.LogFile          := 'cef.log';
   //GlobalCEFApp.LogSeverity      := LOGSEVERITY_VERBOSE;
 end;
@@ -121,11 +82,6 @@ end;
 procedure TMainForm.Button1Click(Sender: TObject);
 begin
   ChromiumWindow1.LoadURL(Edit1.Text);
-end;
-
-procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
-begin
-  FHandler := nil;
 end;
 
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -136,6 +92,7 @@ begin
     begin
       FClosing := True;
       Visible  := False;
+      FHandler := nil;
       ChromiumWindow1.CloseBrowser(True);
     end;
 end;
@@ -147,6 +104,8 @@ begin
   TempStream := nil;
   FCanClose  := False;
   FClosing   := False;
+
+  ChromiumWindow1.ChromiumBrowser.RuntimeStyle := CEF_RUNTIME_STYLE_ALLOY;
 
   try
     try
@@ -163,9 +122,9 @@ end;
 
 procedure TMainForm.FormShow(Sender: TObject);
 begin
-  ChromiumWindow1.OnAfterCreated                       := Chromium_OnAfterCreated;
-  ChromiumWindow1.ChromiumBrowser.OnGetResourceHandler := Chromium_OnGetResourceHandler;
-  ChromiumWindow1.ChromiumBrowser.OnBeforePopup        := Chromium_OnBeforePopup;
+  ChromiumWindow1.OnAfterCreated                              := Chromium_OnAfterCreated;
+  ChromiumWindow1.ChromiumBrowser.OnGetResourceHandler        := Chromium_OnGetResourceHandler;
+  ChromiumWindow1.ChromiumBrowser.OnBeforePopup               := Chromium_OnBeforePopup;
 
   // GlobalCEFApp.GlobalContextInitialized has to be TRUE before creating any browser
   // If it's not initialized yet, we use a simple timer to create the browser later.
@@ -181,8 +140,11 @@ end;
 
 procedure TMainForm.ChromiumWindow1BeforeClose(Sender: TObject);
 begin
-  FCanClose := True;
-  PostMessage(Handle, WM_CLOSE, 0, 0);
+  if not(FCanClose) then
+    begin
+      FCanClose := True;
+      PostMessage(Handle, WM_CLOSE, 0, 0);
+    end;
 end;
 
 procedure TMainForm.ChromiumWindow1Close(Sender: TObject);
@@ -191,7 +153,7 @@ begin
   if not(ChromiumWindow1.DestroyChildWindow) then
     begin
       FCanClose := True;
-      Close;
+      PostMessage(Handle, WM_CLOSE, 0, 0);
     end;
 end;
 
@@ -226,7 +188,7 @@ procedure TMainForm.Chromium_OnBeforePopup(      Sender             : TObject;
                                            var   Result             : Boolean);
 begin
   // For simplicity, this demo blocks all popup windows and new tabs
-  Result := (targetDisposition in [WOD_NEW_FOREGROUND_TAB, WOD_NEW_BACKGROUND_TAB, WOD_NEW_POPUP, WOD_NEW_WINDOW]);
+  Result := (targetDisposition in [CEF_WOD_NEW_FOREGROUND_TAB, CEF_WOD_NEW_BACKGROUND_TAB, CEF_WOD_NEW_POPUP, CEF_WOD_NEW_WINDOW]);
 end;
 
 procedure TMainForm.WMMove(var aMessage : TWMMove);

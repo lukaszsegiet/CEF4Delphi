@@ -1,40 +1,3 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uCEFOLEDragAndDrop;
 
 {$IFDEF FPC}
@@ -43,14 +6,20 @@ unit uCEFOLEDragAndDrop;
 
 {$I cef.inc}
 
+{$IFNDEF FPC}{$IFNDEF DELPHI12_UP}
+  // Workaround for "Internal error" in old Delphi versions caused by uint64 handling
+  {$R-}
+{$ENDIF}{$ENDIF}
+
 interface
 
 uses
   {$IFDEF DELPHI16_UP}
-    {$IFDEF MSWINDOWS}WinApi.Windows, WinApi.ShlObj, WinApi.ActiveX,{$ENDIF} System.Classes, System.Math;
+    {$IFDEF MSWINDOWS}WinApi.Windows, WinApi.ShlObj, WinApi.ActiveX,{$ENDIF} System.Classes, System.Math,
   {$ELSE}
-    {$IFDEF MSWINDOWS}Windows, ShlObj, ActiveX,{$ENDIF} Classes, Math;
+    {$IFDEF MSWINDOWS}Windows, ShlObj, ActiveX,{$ENDIF} Classes, Math,
   {$ENDIF}
+  uCEFTypes;
 
 const
   CUSTOM_ARRAY_LENGTH = 25;
@@ -88,8 +57,13 @@ type
       destructor  Destroy; override;
 
       // IEnumFormatEtc
-      function Next(Celt: LongInt; out Elt; pCeltFetched: pLongInt): HRESULT; stdcall;
+      {$IFNDEF FPC}
+      function Next(Celt: LongInt; out Rgelt; pCeltFetched: pLongInt): HRESULT; stdcall;
       function Skip(Celt: Longint): HRESULT; stdcall;
+      {$ELSE}
+      function Next(Celt: ULONG; out Rgelt: FormatEtc; pceltFetched: PULONG = nil): HRESULT; stdcall;
+      function Skip(Celt: ULONG): HRESULT; stdcall;
+      {$ENDIF}
       function Reset: HRESULT; stdcall;
       function Clone(out Enum: IEnumFormatEtc): HRESULT; stdcall;
   end;
@@ -97,8 +71,13 @@ type
   TOLEDropSource = class(TInterfacedObject, IDropSource)
     public
       // IDropSource
+      {$IFNDEF FPC}
       function QueryContinueDrag(fEscapePressed: bool; grfKeyState: LongInt): HRESULT; stdcall;
       function GiveFeedback(dwEffect: LongInt): HRESULT; stdcall;
+      {$ELSE}
+      function QueryContinueDrag(fEscapePressed: BOOL; grfKeyState: DWORD): HRESULT; stdcall;
+      function GiveFeedback(dwEffect: DWORD): HRESULT; stdcall;
+      {$ENDIF}
   end;
 
   TOLEDataObject = class(TInterfacedObject, IDataObject)
@@ -120,11 +99,19 @@ type
       function GetDataHere(const FormatEtc: TFormatEtc; out Medium: TStgMedium):HRESULT; stdcall;
       function QueryGetData(const FormatEtc: TFormatEtc): HRESULT; stdcall;
       function GetCanonicalFormatEtc(const FormatEtc: TFormatEtc; out FormatEtcout: TFormatEtc): HRESULT; stdcall;
+      {$IFNDEF FPC}
       function SetData(const FormatEtc: TFormatEtc; var Medium: TStgMedium; fRelease: Bool): HRESULT; stdcall;
       function EnumFormatEtc(dwDirection: LongInt; out aEnumFormatEtc: IEnumFormatEtc): HRESULT; stdcall;
       function dAdvise(const FormatEtc: TFormatEtc; advf: LongInt; const advsink: IAdviseSink; out dwConnection: LongInt): HRESULT; stdcall;
       function dUnadvise(dwConnection: LongInt): HRESULT; stdcall;
+      {$ELSE}
+      function SetData(const pformatetc: FORMATETC; {$IFDEF FPC_VER_320}var{$ELSE}const{$ENDIF} medium: STGMEDIUM; FRelease: BOOL): HRESULT; stdcall;
+      function EnumFormatEtc(dwDirection: DWORD; out aEnumFormatEtc: IENUMFORMATETC): HRESULT; stdcall;
+      function DAdvise(const formatetc: FORMATETC; advf: DWORD; const AdvSink: IAdviseSink; out dwConnection: DWORD): HRESULT; stdcall;
+      function DUnadvise(dwconnection: DWORD): HRESULT; stdcall;
+      {$ENDIF}
       function EnumdAdvise(out EnumAdvise: IEnumStatData): HRESULT; stdcall;
+
   end;
 
   TOLEDropTarget = class(TInterfacedObject, IDropTarget)
@@ -135,10 +122,17 @@ type
       constructor Create(const aManager : TOLEDragAndDropMgr); reintroduce;
 
       // IDropTarget
+      {$IFNDEF FPC}
       function DragEnter(const DataObj: IDataObject; grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
       function DragOver(grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
-      function DragLeave: HRESULT; stdcall;
       function Drop(const dataObj: IDataObject; grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
+      {$ELSE}
+      function DragEnter(const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HRESULT; stdcall;
+      function DragOver(grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HRESULT; stdcall;
+      function Drop(const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HRESULT; stdcall;
+      {$ENDIF}
+      function DragLeave: HRESULT; stdcall;
+
   end;
 
 implementation
@@ -168,7 +162,11 @@ begin
 
               aMedium.hGlobal       := TempHandle;
               aMedium.tymed         := TYMED_HGLOBAL;
+              {$IFNDEF FPC}
               aMedium.unkForRelease := nil;
+              {$ELSE}
+              aMedium.PUnkForRelease := nil;
+              {$ENDIF}
 
               GlobalUnlock(TempHandle);
 
@@ -207,6 +205,10 @@ begin
 end;
 
 function TOLEDragAndDropMgr.GetStorageForFileDescriptor(var aMedium : TStgMedium; const aFileName : string) : boolean;
+{$IFDEF FPC}
+const
+  FD_LINKUI = $8000;
+{$ENDIF}
 var
   TempHandle     : HGLOBAL;
   TempDescriptor : TFileGroupDescriptor;
@@ -243,7 +245,11 @@ begin
 
               aMedium.tymed         := TYMED_HGLOBAL;
               aMedium.hGlobal       := TempHandle;
+              {$IFNDEF FPC}
               aMedium.unkForRelease := nil;
+              {$ELSE}
+              aMedium.PUnkForRelease := nil;
+              {$ENDIF}
 
               GlobalUnlock(TempHandle);
 
@@ -330,6 +336,8 @@ begin
 end;
 
 procedure TOLEEnumFormatEtc.CopyFormatEtc(var aDstFormatEtc : TFormatEtc; const aSrcFormatEtc : TFormatEtc);
+var
+  Size: Integer;
 begin
   aDstFormatEtc.cfFormat := aSrcFormatEtc.cfFormat;
   aDstFormatEtc.dwAspect := aSrcFormatEtc.dwAspect;
@@ -340,27 +348,28 @@ begin
     aDstFormatEtc.ptd := nil
    else
     begin
-      aDstFormatEtc.ptd := CoTaskMemAlloc(SizeOf(TDVTargetDevice));
-
-      aDstFormatEtc.ptd.tdSize             := aSrcFormatEtc.ptd.tdSize;
-      aDstFormatEtc.ptd.tdDriverNameOffset := aSrcFormatEtc.ptd.tdDriverNameOffset;
-      aDstFormatEtc.ptd.tdDeviceNameOffset := aSrcFormatEtc.ptd.tdDeviceNameOffset;
-      aDstFormatEtc.ptd.tdPortNameOffset   := aSrcFormatEtc.ptd.tdPortNameOffset;
-      aDstFormatEtc.ptd.tdExtDevmodeOffset := aSrcFormatEtc.ptd.tdExtDevmodeOffset;
-      aDstFormatEtc.ptd.tdData             := aSrcFormatEtc.ptd.tdData;
+      Size := Max(aSrcFormatEtc.ptd^.tdSize, SizeOf(DVTARGETDEVICE));
+      aDstFormatEtc.ptd := CoTaskMemAlloc(Size);
+      Move(aSrcFormatEtc.ptd^, aDstFormatEtc.ptd^, Size);
     end;
 end;
 
-function TOLEEnumFormatEtc.Next(Celt: LongInt; out Elt; pCeltFetched: pLongInt): HRESULT;
+function TOLEEnumFormatEtc.Next
+{$IFNDEF FPC}
+  (Celt: LongInt; out Rgelt; pCeltFetched: pLongInt): HRESULT; stdcall;
+{$ELSE}
+  (Celt: ULONG; out Rgelt: FormatEtc; pceltFetched: PULONG): HRESULT; stdcall;
+{$ENDIF}
 var
   i : integer;
-  TempArray : TOLEFormatArray absolute Elt;
+  TempArray : ^TOLEFormatArray;
 begin
   i := 0;
+  TempArray := @Rgelt;
 
   while (i < Celt) and (FIndex < FNumFormats) do
     begin
-      CopyFormatEtc(TempArray[i], FFormatArray[FIndex]);
+      CopyFormatEtc(TempArray^[i], FFormatArray[FIndex]);
       inc(i);
       inc(FIndex);
     end;
@@ -373,7 +382,12 @@ begin
     Result := S_FALSE;
 end;
 
-function TOLEEnumFormatEtc.Skip(Celt: Longint): HRESULT;
+function TOLEEnumFormatEtc.Skip
+{$IFNDEF FPC}
+  (Celt: Longint): HRESULT; stdcall;
+{$ELSE}
+  (Celt: ULONG): HRESULT; stdcall;
+{$ENDIF}
 begin
   FIndex := FIndex + Celt;
 
@@ -383,13 +397,13 @@ begin
     Result := S_FALSE;
 end;
 
-function TOLEEnumFormatEtc.Reset: HRESULT;
+function TOLEEnumFormatEtc.Reset: HRESULT; stdcall;
 begin
   FIndex := 0;
   Result := S_OK;
 end;
 
-function TOLEEnumFormatEtc.Clone(out Enum: IEnumFormatEtc): HRESULT;
+function TOLEEnumFormatEtc.Clone(out Enum: IEnumFormatEtc): HRESULT; stdcall;
 begin
   Enum   := TOLEEnumFormatEtc.Create(FFormatArray, FNumFormats, FIndex);
   Result := S_OK;
@@ -407,14 +421,24 @@ begin
   FManager := aManager;
 end;
 
-function TOLEDropTarget.DragEnter(const DataObj: IDataObject; grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
+function TOLEDropTarget.DragEnter
+{$IFNDEF FPC}
+  (const DataObj: IDataObject; grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
+{$ELSE}
+  (const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HRESULT; stdcall;
+{$ENDIF}
 begin
-  Result := FManager.DragEnter(DataObj, grfKeyState, pt, dwEffect);
+  Result := FManager.DragEnter(DataObj, grfKeyState, pt, Longint(dwEffect));
 end;
 
-function TOLEDropTarget.DragOver(grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
+function TOLEDropTarget.DragOver
+{$IFNDEF FPC}
+  (grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
+{$ELSE}
+  (grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HRESULT; stdcall;
+{$ENDIF}
 begin
-  Result := FManager.DragOver(grfKeyState, pt, dwEffect);
+  Result := FManager.DragOver(grfKeyState, pt, Longint(dwEffect));
 end;
 
 function TOLEDropTarget.DragLeave: HRESULT; stdcall;
@@ -422,9 +446,14 @@ begin
   Result := FManager.DragLeave;
 end;
 
-function TOLEDropTarget.Drop(const dataObj: IDataObject; grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
+function TOLEDropTarget.Drop
+{$IFNDEF FPC}
+  (const dataObj: IDataObject; grfKeyState: Longint; pt: TPoint; var dwEffect: Longint): HRESULT; stdcall;
+{$ELSE}
+  (const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HRESULT; stdcall;
+{$ENDIF}
 begin
-  Result := FManager.Drop(dataObj, grfKeyState, pt, dwEffect);
+  Result := FManager.Drop(dataObj, grfKeyState, pt, Longint(dwEffect));
 end;
 
 
@@ -432,7 +461,12 @@ end;
 // ****************** TOLEDropSource *******************
 // *****************************************************
 
-function TOLEDropSource.QueryContinueDrag(fEscapePressed: bool; grfKeyState: LongInt): HRESULT; stdcall;
+function TOLEDropSource.QueryContinueDrag
+{$IFNDEF FPC}
+  (fEscapePressed: bool; grfKeyState: LongInt): HRESULT; stdcall;
+{$ELSE}
+  (fEscapePressed: BOOL; grfKeyState: DWORD): HRESULT; stdcall;
+{$ENDIF}
 begin
   if fEscapePressed then
     Result := DRAGDROP_S_CANCEL
@@ -443,7 +477,12 @@ begin
       Result := S_OK;
 end;
 
-function TOLEDropSource.GiveFeedback(dwEffect: LongInt): HRESULT; stdcall;
+function TOLEDropSource.GiveFeedback
+{$IFNDEF FPC}
+  (dwEffect: LongInt): HRESULT; stdcall;
+{$ELSE}
+  (dwEffect: DWORD): HRESULT; stdcall;
+{$ENDIF}
 begin
   Result := DRAGDROP_S_USEDEFAULTCURSORS;
 end;
@@ -542,14 +581,22 @@ begin
   if (i < 0) or ((FFormatArray[i].tymed and TYMED_HGLOBAL) = 0) then
     begin
       Medium.tymed         := TYMED_NULL;
+      {$IFNDEF FPC}
       Medium.unkForRelease := nil;
+      {$ELSE}
+      Medium.PUnkForRelease := nil;
+      {$ENDIF}
       Medium.hGlobal       := 0;
       Result               := DV_E_FORMATETC;
     end
    else
     begin
       Medium.tymed         := FFormatArray[i].tymed;
+      {$IFNDEF FPC}
       Medium.unkForRelease := nil;
+      {$ELSE}
+      Medium.PUnkForRelease := nil;
+      {$ENDIF}
       Medium.hGlobal       := DupGlobalMem(FMediumArray[i].hGlobal);
       Result               := S_OK;
     end;
@@ -579,12 +626,22 @@ begin
   Result := E_NOTIMPL;
 end;
 
-function TOLEDataObject.SetData(const FormatEtc: TFormatEtc; var Medium: TStgMedium; fRelease: Bool): HRESULT; stdcall;
+function TOLEDataObject.SetData
+{$IFNDEF FPC}
+  (const FormatEtc: TFormatEtc; var Medium: TStgMedium; fRelease: Bool): HRESULT; stdcall;
+{$ELSE}
+  (const pformatetc: FORMATETC; {$IFDEF FPC_VER_320}var{$ELSE}const{$ENDIF} medium: STGMEDIUM; FRelease: BOOL): HRESULT; stdcall;
+{$ENDIF}
 begin
   Result := E_NOTIMPL;
 end;
 
-function TOLEDataObject.EnumFormatEtc(dwDirection: LongInt; out aEnumFormatEtc: IEnumFormatEtc): HRESULT; stdcall;
+function TOLEDataObject.EnumFormatEtc
+{$IFNDEF FPC}
+  (dwDirection: LongInt; out aEnumFormatEtc: IEnumFormatEtc): HRESULT; stdcall;
+{$ELSE}
+  (dwDirection: DWORD; out aEnumFormatEtc: IENUMFORMATETC): HRESULT; stdcall;
+{$ENDIF}
 begin
   if (dwDirection = DATADIR_GET) then
     begin
@@ -602,15 +659,22 @@ begin
     end;
 end;
 
-function TOLEDataObject.dAdvise(const FormatEtc: TFormatEtc;
-                                      advf: LongInt;
-                                const advsink: IAdviseSink;
-                                out   dwConnection: LongInt): HRESULT; stdcall;
+function TOLEDataObject.dAdvise
+{$IFNDEF FPC}
+  (const FormatEtc: TFormatEtc; advf: LongInt; const advsink: IAdviseSink; out   dwConnection: LongInt): HRESULT; stdcall;
+{$ELSE}
+  (const formatetc: FORMATETC; advf: DWORD; const AdvSink: IAdviseSink; out dwConnection: DWORD): HRESULT; stdcall;
+{$ENDIF}
 begin
   Result := OLE_E_ADVISENOTSUPPORTED;
 end;
 
-function TOLEDataObject.dUnadvise(dwConnection: LongInt): HRESULT; stdcall;
+function TOLEDataObject.dUnadvise
+{$IFNDEF FPC}
+  (dwConnection: LongInt): HRESULT; stdcall;
+{$ELSE}
+  (dwconnection: DWORD): HRESULT; stdcall;
+{$ENDIF}
 begin
   Result := OLE_E_ADVISENOTSUPPORTED;
 end;

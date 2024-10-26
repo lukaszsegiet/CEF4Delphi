@@ -1,43 +1,6 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uJSEval;
 
-{$I cef.inc}
+{$I ..\..\..\..\source\cef.inc}
 
 interface
 
@@ -51,7 +14,7 @@ uses
   Controls, Forms, Dialogs, StdCtrls, ExtCtrls, Types, ComCtrls, ClipBrd, EncdDecd,
   {$ENDIF}
   uCEFChromium, uCEFWindowParent, uCEFInterfaces, uCEFApplication, uCEFTypes, uCEFConstants,
-  uCEFWinControl;
+  uCEFWinControl, uCEFChromiumCore;
 
 const
   MINIBROWSER_SHOWTEXTVIEWER = WM_APP + $101;
@@ -74,34 +37,21 @@ type
     GoBtn: TButton;
     AddressEdt: TEdit;
     Timer1: TTimer;
-    procedure Chromium1AfterCreated(Sender: TObject; const browser: ICefBrowser);
-    procedure GoBtnClick(Sender: TObject);
-    procedure FormShow(Sender: TObject);
 
-    procedure Chromium1ProcessMessageReceived(Sender: TObject;
-      const browser: ICefBrowser; const frame: ICefFrame; sourceProcess: TCefProcessId;
-      const message: ICefProcessMessage; out Result: Boolean);
-    procedure Chromium1BeforeContextMenu(Sender: TObject;
-      const browser: ICefBrowser; const frame: ICefFrame;
-      const params: ICefContextMenuParams; const model: ICefMenuModel);
-    procedure Chromium1ContextMenuCommand(Sender: TObject;
-      const browser: ICefBrowser; const frame: ICefFrame;
-      const params: ICefContextMenuParams; commandId: Integer;
-      eventFlags: Cardinal; out Result: Boolean);
+    procedure GoBtnClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
-    procedure Chromium1BeforePopup(Sender: TObject;
-      const browser: ICefBrowser; const frame: ICefFrame; const targetUrl,
-      targetFrameName: ustring;
-      targetDisposition: TCefWindowOpenDisposition; userGesture: Boolean;
-      const popupFeatures: TCefPopupFeatures; var windowInfo: TCefWindowInfo;
-      var client: ICefClient; var settings: TCefBrowserSettings;
-      var extra_info: ICefDictionaryValue;
-      var noJavascriptAccess: Boolean; var Result: Boolean);
+
+    procedure FormShow(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
-    procedure Chromium1Close(Sender: TObject; const browser: ICefBrowser;
-      var aAction : TCefCloseBrowserAction);
-    procedure Chromium1BeforeClose(Sender: TObject;
-      const browser: ICefBrowser);
+
+    procedure Chromium1AfterCreated(Sender: TObject; const browser: ICefBrowser);
+    procedure Chromium1ProcessMessageReceived(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; sourceProcess: TCefProcessId; const message: ICefProcessMessage; out Result: Boolean);
+    procedure Chromium1BeforeContextMenu(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const params: ICefContextMenuParams; const model: ICefMenuModel);
+    procedure Chromium1ContextMenuCommand(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const params: ICefContextMenuParams; commandId: Integer; eventFlags: TCefEventFlags; out Result: Boolean);
+    procedure Chromium1BeforePopup(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const targetUrl, targetFrameName: ustring; targetDisposition: TCefWindowOpenDisposition; userGesture: Boolean; const popupFeatures: TCefPopupFeatures; var windowInfo: TCefWindowInfo; var client: ICefClient; var settings: TCefBrowserSettings; var extra_info: ICefDictionaryValue; var noJavascriptAccess: Boolean; var Result: Boolean);
+    procedure Chromium1Close(Sender: TObject; const browser: ICefBrowser; var aAction : TCefCloseBrowserAction);
+    procedure Chromium1BeforeClose(Sender: TObject; const browser: ICefBrowser);
+    procedure FormCreate(Sender: TObject);
 
   private
     { Private declarations }
@@ -168,7 +118,7 @@ uses
 // About binary parameters
 // -----------------------
 // There is a size limit in the binary parameters of only a few kilobytes.
-// For more info and alternatives read this thread in the official CEF3 forum :
+// For more info and alternatives read this thread in the official CEF forum :
 // http://www.magpcss.org/ceforum/viewtopic.php?f=6&t=10590
 //
 // Compress the binary data if necessary!
@@ -179,7 +129,6 @@ uses
 // 1. FormCloseQuery sets CanClose to FALSE calls TChromium.CloseBrowser which triggers the TChromium.OnClose event.
 // 2. TChromium.OnClose sends a CEFBROWSER_DESTROY message to destroy CEFWindowParent1 in the main thread, which triggers the TChromium.OnBeforeClose event.
 // 3. TChromium.OnBeforeClose sets FCanClose := True and sends WM_CLOSE to the form.
-
 
 procedure TJSEvalFrm.Chromium1AfterCreated(Sender: TObject; const browser: ICefBrowser);
 begin
@@ -193,7 +142,7 @@ begin
   PostMessage(Handle, WM_CLOSE, 0, 0);
 end;
 
-procedure TJSEvalFrm.Chromium1BeforeContextMenu(Sender : TObject;
+procedure TJSEvalFrm.Chromium1BeforeContextMenu(      Sender  : TObject;
                                                 const browser : ICefBrowser;
                                                 const frame   : ICefFrame;
                                                 const params  : ICefContextMenuParams;
@@ -215,7 +164,7 @@ procedure TJSEvalFrm.Chromium1BeforePopup(Sender: TObject;
   var Result: Boolean);
 begin
   // For simplicity, this demo blocks all popup windows and new tabs
-  Result := (targetDisposition in [WOD_NEW_FOREGROUND_TAB, WOD_NEW_BACKGROUND_TAB, WOD_NEW_POPUP, WOD_NEW_WINDOW]);
+  Result := (targetDisposition in [CEF_WOD_NEW_FOREGROUND_TAB, CEF_WOD_NEW_BACKGROUND_TAB, CEF_WOD_NEW_POPUP, CEF_WOD_NEW_WINDOW]);
 end;
 
 procedure TJSEvalFrm.Chromium1Close(Sender: TObject;
@@ -225,12 +174,12 @@ begin
   aAction := cbaDelay;
 end;
 
-procedure TJSEvalFrm.Chromium1ContextMenuCommand(Sender : TObject;
+procedure TJSEvalFrm.Chromium1ContextMenuCommand(      Sender     : TObject;
                                                  const browser    : ICefBrowser;
                                                  const frame      : ICefFrame;
                                                  const params     : ICefContextMenuParams;
                                                        commandId  : Integer;
-                                                       eventFlags : Cardinal;
+                                                       eventFlags : TCefEventFlags;
                                                  out   Result     : Boolean);
 begin
   Result := False;
@@ -252,6 +201,11 @@ begin
       Visible  := False;
       Chromium1.CloseBrowser(True);
     end;
+end;
+
+procedure TJSEvalFrm.FormCreate(Sender: TObject);
+begin
+  Chromium1.RuntimeStyle := CEF_RUNTIME_STYLE_ALLOY;
 end;
 
 procedure TJSEvalFrm.FormShow(Sender: TObject);
@@ -360,8 +314,9 @@ begin
 
   try
     try
-      TempOpenDialog        := TOpenDialog.Create(nil);
-      TempOpenDialog.Filter := 'JPEG files (*.jpg)|*.JPG';
+      TempOpenDialog         := TOpenDialog.Create(nil);
+      TempOpenDialog.Options := TempOpenDialog.Options + [ofFileMustExist];
+      TempOpenDialog.Filter  := 'JPEG files (*.jpg)|*.JPG';
 
       if TempOpenDialog.Execute then
         begin
@@ -371,7 +326,7 @@ begin
           if (TempSize > 0) then
             begin
               SetLength(TempBuffer, TempSize);
-              TempSize := TempStream.Read(TempBuffer, TempSize);
+              TempSize := TempStream.Read(TempBuffer[0], TempSize);
 
               if (TempSize > 0) then
                 begin
@@ -435,7 +390,8 @@ begin
         end;
     end;
 
-  pFrame.SendProcessMessage(PID_BROWSER, pAnswer);
+  if (pFrame <> nil) and pFrame.IsValid then
+    pFrame.SendProcessMessage(PID_BROWSER, pAnswer);
 end;
 
 procedure ParseBinaryValue(const pBrowser : ICefBrowser; const pFrame : ICefFrame; const aBinaryValue : ICefBinaryValue);
@@ -464,7 +420,7 @@ begin
               TempString := 'Image size : ' + inttostr(TempSize) + #13 + #10 +
                             'Encoded image : ' + EncodeBase64(TempPointer, TempSize);
 
-              if pAnswer.ArgumentList.SetString(0, TempString) then
+              if (pFrame <> nil) and pFrame.IsValid and pAnswer.ArgumentList.SetString(0, TempString) then
                 pFrame.SendProcessMessage(PID_BROWSER, pAnswer);
             end;
         end;
@@ -497,9 +453,9 @@ begin
     begin
       TempScript := pMessage.ArgumentList.GetString(0);
 
-      if (length(TempScript) > 0) then
+      if (length(TempScript) > 0) and (pFrame <> nil) and pFrame.IsValid then
         begin
-          pV8Context := pBrowser.MainFrame.GetV8Context;
+          pV8Context := pFrame.GetV8Context;
 
           if pV8Context.Enter then
             begin
@@ -524,7 +480,6 @@ procedure CreateGlobalCEFApp;
 begin
   GlobalCEFApp                          := TCefApplication.Create;
   GlobalCEFApp.OnProcessMessageReceived := RenderProcessHandler_OnProcessMessageReceivedEvent;
-  GlobalCEFApp.DisableFeatures          := 'NetworkService,OutOfBlinkCors';
 end;
 
 procedure TJSEvalFrm.Chromium1ProcessMessageReceived(      Sender        : TObject;

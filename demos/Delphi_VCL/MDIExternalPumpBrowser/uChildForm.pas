@@ -1,43 +1,6 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uChildForm;
 
-{$I cef.inc}
+{$I ..\..\..\source\cef.inc}
 
 interface
 
@@ -51,7 +14,7 @@ uses
   Controls, Forms, Dialogs, StdCtrls, ExtCtrls, Types, ComCtrls, ClipBrd,
   {$ENDIF}
   uMainForm, uCEFChromium, uCEFWindowParent, uCEFInterfaces, uCEFConstants, uCEFTypes,
-  uCEFWinControl;
+  uCEFWinControl, uCEFChromiumCore;
 
 type
   TChildForm = class(TForm)
@@ -61,30 +24,20 @@ type
     Chromium1: TChromium;
     CEFWindowParent1: TCEFWindowParent;
     StatusBar1: TStatusBar;
-    procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure Chromium1AfterCreated(Sender: TObject; const browser: ICefBrowser);
+
     procedure Button1Click(Sender: TObject);
+
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormShow(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormCreate(Sender: TObject);
-    procedure Chromium1Close(Sender: TObject; const browser: ICefBrowser;
-      var aAction : TCefCloseBrowserAction);
     procedure FormDestroy(Sender: TObject);
-    procedure Chromium1BeforeClose(Sender: TObject;
-      const browser: ICefBrowser);
-    procedure Chromium1LoadingStateChange(Sender: TObject;
-      const browser: ICefBrowser; isLoading, canGoBack,
-      canGoForward: Boolean);
-    procedure Chromium1StatusMessage(Sender: TObject;
-      const browser: ICefBrowser; const value: ustring);
-    procedure Chromium1BeforePopup(Sender: TObject;
-      const browser: ICefBrowser; const frame: ICefFrame; const targetUrl,
-      targetFrameName: ustring;
-      targetDisposition: TCefWindowOpenDisposition; userGesture: Boolean;
-      const popupFeatures: TCefPopupFeatures; var windowInfo: TCefWindowInfo;
-      var client: ICefClient; var settings: TCefBrowserSettings;
-      var extra_info: ICefDictionaryValue;
-      var noJavascriptAccess: Boolean; var Result: Boolean);
+
+    procedure Chromium1AfterCreated(Sender: TObject; const browser: ICefBrowser);
+    procedure Chromium1BeforeClose(Sender: TObject; const browser: ICefBrowser);
+    procedure Chromium1LoadingStateChange(Sender: TObject; const browser: ICefBrowser; isLoading, canGoBack, canGoForward: Boolean);
+    procedure Chromium1StatusMessage(Sender: TObject; const browser: ICefBrowser; const value: ustring);
+    procedure Chromium1BeforePopup(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const targetUrl, targetFrameName: ustring; targetDisposition: TCefWindowOpenDisposition; userGesture: Boolean; const popupFeatures: TCefPopupFeatures; var windowInfo: TCefWindowInfo; var client: ICefClient; var settings: TCefBrowserSettings; var extra_info: ICefDictionaryValue; var noJavascriptAccess: Boolean; var Result: Boolean);
 
   private
     // Variables to control when can we destroy the form safely
@@ -93,7 +46,6 @@ type
 
   protected
     procedure BrowserCreatedMsg(var aMessage : TMessage); message CEFBROWSER_CREATED;
-    procedure BrowserDestroyMsg(var aMessage : TMessage); message CEFBROWSER_DESTROY;
     procedure WMMove(var aMessage : TWMMove); message WM_MOVE;
     procedure WMMoving(var aMessage : TMessage); message WM_MOVING;
     procedure WMEnterMenuLoop(var aMessage: TMessage); message WM_ENTERMENULOOP;
@@ -109,9 +61,8 @@ implementation
 
 // Destruction steps
 // =================
-// 1. FormCloseQuery calls TChromium.CloseBrowser
-// 2. TChromium.OnClose sends a CEFBROWSER_DESTROY message to destroy CEFWindowParent1 in the main thread.
-// 3. TChromium.OnBeforeClose sets FCanClose := True and sends WM_CLOSE to the form.
+// 1. FormCloseQuery sets CanClose to FALSE, destroys CEFWindowParent1 and calls TChromium.CloseBrowser which triggers the TChromium.OnBeforeClose event.
+// 2. TChromium.OnBeforeClose sets FCanClose := True and sends WM_CLOSE to the form.
 
 uses
   uCEFRequestContext, uCEFApplication;
@@ -143,13 +94,7 @@ procedure TChildForm.Chromium1BeforePopup(Sender: TObject;
   var Result: Boolean);
 begin
   // For simplicity, this demo blocks all popup windows and new tabs
-  Result := (targetDisposition in [WOD_NEW_FOREGROUND_TAB, WOD_NEW_BACKGROUND_TAB, WOD_NEW_POPUP, WOD_NEW_WINDOW]);
-end;
-
-procedure TChildForm.Chromium1Close(Sender: TObject; const browser: ICefBrowser; var aAction : TCefCloseBrowserAction);
-begin
-  PostMessage(Handle, CEFBROWSER_DESTROY, 0, 0);
-  aAction := cbaDelay;
+  Result := (targetDisposition in [CEF_WOD_NEW_FOREGROUND_TAB, CEF_WOD_NEW_BACKGROUND_TAB, CEF_WOD_NEW_POPUP, CEF_WOD_NEW_WINDOW]);
 end;
 
 procedure TChildForm.Chromium1LoadingStateChange(Sender: TObject; const browser: ICefBrowser; isLoading, canGoBack, canGoForward: Boolean);
@@ -185,6 +130,7 @@ begin
       FClosing       := True;
       Panel1.Enabled := False;
       Chromium1.CloseBrowser(True);
+      CEFWindowParent1.Free;
     end;
 end;
 
@@ -204,15 +150,21 @@ end;
 procedure TChildForm.FormShow(Sender: TObject);
 var
   TempContext : ICefRequestContext;
+  TempCache : string;
 begin
   // The new request context overrides several GlobalCEFApp properties like :
-  // cache, AcceptLanguageList, PersistSessionCookies, PersistUserPreferences,
-  // IgnoreCertificateErrors and EnableNetSecurityExpiration
+  // cache, AcceptLanguageList, PersistSessionCookies, PersistUserPreferences and
+  // IgnoreCertificateErrors.
 
   // If you use an empty cache path, CEF will use in-memory cache.
 
+  // The cache directories of all the browsers *MUST* be a subdirectory of
+  // GlobalCEFApp.RootCache unless you use a blank cache (in-memory).
+
+  TempCache := GlobalCEFApp.RootCache + '\cache2';
+
   if MainForm.NewContextChk.Checked then
-    TempContext := TCefRequestContextRef.New('', '', False, False, False, False)
+    TempContext := TCefRequestContextRef.New(TempCache, '', '', False, False)
    else
     TempContext := nil;
 
@@ -252,11 +204,6 @@ begin
   CEFWindowParent1.UpdateSize;
   Panel1.Enabled := True;
   Button1.Click;
-end;
-
-procedure TChildForm.BrowserDestroyMsg(var aMessage : TMessage);
-begin
-  CEFWindowParent1.Free;
 end;
 
 end.

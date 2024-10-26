@@ -1,43 +1,6 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uMainForm;
 
-{$I cef.inc}
+{$I ..\..\..\source\cef.inc}
 
 interface
 
@@ -50,7 +13,7 @@ uses
   Controls, Forms, Dialogs, StdCtrls, ExtCtrls, SyncObjs,
   {$ENDIF}
   uCEFChromium, uCEFWindowParent, uCEFInterfaces, uCEFConstants, uCEFTypes, uChildForm,
-  Vcl.AppEvnts, uCEFWinControl;
+  Vcl.AppEvnts, uCEFWinControl, uCEFChromiumCore;
 
 const
   CEF_CREATENEXTCHILD  = WM_APP + $A50;
@@ -83,6 +46,7 @@ type
   protected
     FChildForm       : TChildForm;
     FCriticalSection : TCriticalSection;
+    FChildCounter    : cardinal; // Used to create unique child form names.
     FCanClose        : boolean;  // Set to True in TChromium.OnBeforeClose
     FClosingMainForm : boolean;  // Set to True in the CloseQuery event.
     FClosingChildren : boolean;  // Set to True in the CloseQuery event.
@@ -90,6 +54,7 @@ type
     function  GetPopupChildCount : integer;
 
     procedure ClosePopupChildren;
+    procedure CreateChildForm;
 
     procedure WMMove(var aMessage : TWMMove); message WM_MOVE;
     procedure WMMoving(var aMessage : TMessage); message WM_MOVING;
@@ -140,18 +105,15 @@ uses
 // Destruction steps
 // =================
 // 1. FormCloseQuery sets CanClose to FALSE and it closes all child forms.
-// 2. When all the child forms are closed then FormCloseQuery is triggered again, sets CanClose to FALSE calls TChromium.CloseBrowser which triggers the TChromium.OnClose event.
-// 3. TChromium.OnClose sends a CEFBROWSER_DESTROY message to destroy CEFWindowParent1 in the main thread, which triggers the TChromium.OnBeforeClose event.
+// 2. When all the child forms are closed then FormCloseQuery is triggered again, calls TChromium.CloseBrowser which triggers the TChromium.OnClose event.
+// 3. TChromium.OnClose sends a CEF_DESTROY message to destroy CEFWindowParent1 in the main thread, which triggers the TChromium.OnBeforeClose event.
 // 4. TChromium.OnBeforeClose sets FCanClose := True and sends WM_CLOSE to the form.
 
 procedure CreateGlobalCEFApp;
 begin
   GlobalCEFApp                            := TCefApplication.Create;
   GlobalCEFApp.WindowlessRenderingEnabled := True;
-  GlobalCEFApp.EnableHighDPISupport       := True;
-  GlobalCEFApp.DisableFeatures            := 'NetworkService,OutOfBlinkCors';
-  //GlobalCEFApp.LogFile                    := 'debug.log';
-  //GlobalCEFApp.LogSeverity                := LOGSEVERITY_INFO;
+  GlobalCEFApp.SetCurrentDir              := True;
 end;
 
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -186,6 +148,7 @@ begin
 
   Chromium1.DefaultURL              := AddressEdt.Text;
   Chromium1.Options.BackgroundColor := CefColorSetARGB($FF, $FF, $FF, $FF);
+  Chromium1.RuntimeStyle            := CEF_RUNTIME_STYLE_ALLOY;
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
@@ -210,7 +173,7 @@ begin
   PostMessage(Handle, CEF_AFTERCREATED, 0, 0);
 end;
 
-procedure TMainForm.Chromium1BeforePopup(Sender : TObject;
+procedure TMainForm.Chromium1BeforePopup(      Sender             : TObject;
                                          const browser            : ICefBrowser;
                                          const frame              : ICefFrame;
                                          const targetUrl          : ustring;
@@ -226,11 +189,11 @@ procedure TMainForm.Chromium1BeforePopup(Sender : TObject;
                                          var   Result             : Boolean);
 begin
   case targetDisposition of
-    WOD_NEW_FOREGROUND_TAB,
-    WOD_NEW_BACKGROUND_TAB,
-    WOD_NEW_WINDOW : Result := True;  // For simplicity, this demo blocks new tabs and new windows.
+    CEF_WOD_NEW_FOREGROUND_TAB,
+    CEF_WOD_NEW_BACKGROUND_TAB,
+    CEF_WOD_NEW_WINDOW : Result := True;  // For simplicity, this demo blocks new tabs and new windows.
 
-    WOD_NEW_POPUP  : Result := not(CreateClientHandler(windowInfo, client, targetFrameName, popupFeatures));
+    CEF_WOD_NEW_POPUP  : Result := not(CreateClientHandler(windowInfo, client, targetFrameName, popupFeatures));
 
     else Result := False;
   end;
@@ -308,24 +271,35 @@ begin
     end;
 end;
 
+procedure TMainForm.CreateChildForm;
+begin
+  if (FChildCounter < high(cardinal)) then
+    inc(FChildCounter)
+   else
+    FChildCounter := 1;
+
+  FChildForm         := TChildForm.Create(self);
+  FChildForm.Name    := 'ChildForm_' + IntToStr(FChildCounter);
+  FChildForm.Tag     := FChildCounter;
+end;
+
 procedure TMainForm.AppEventsMessage(var Msg: tagMSG; var Handled: Boolean);
 begin
   case Msg.message of
-    WM_SYSCHAR    : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleSysCharMsg(Msg, Handled);
-    WM_SYSKEYDOWN : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleSysKeyDownMsg(Msg, Handled);
-    WM_SYSKEYUP   : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleSysKeyUpMsg(Msg, Handled);
+    WM_SYSCHAR    : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleSysCharMsg(Msg);
+    WM_SYSKEYDOWN : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleSysKeyDownMsg(Msg);
+    WM_SYSKEYUP   : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleSysKeyUpMsg(Msg);
     WM_KEYDOWN    : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleKeyDownMsg(Msg, Handled);
-    WM_KEYUP      : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleKeyUpMsg(Msg, Handled);
-    WM_CHAR       : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleCharMsg(Msg, Handled);
-    WM_MOUSEWHEEL : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleMouseWheelMsg(Msg, Handled);
-
-    else Handled := False;
+    WM_KEYUP      : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleKeyUpMsg(Msg);
+    WM_CHAR       : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleCharMsg(Msg);
+    WM_MOUSEWHEEL : if (screen.FocusedForm is TChildForm) then TChildForm(screen.FocusedForm).HandleMouseWheelMsg(Msg);
   end;
 end;
 
 procedure TMainForm.BrowserCreatedMsg(var aMessage : TMessage);
 begin
-  FChildForm         := TChildForm.Create(self);
+  CreateChildForm;
+
   Caption            := 'Popup Browser';
   AddressPnl.Enabled := True;
 end;
@@ -341,13 +315,9 @@ begin
     FCriticalSection.Acquire;
 
     if (FChildForm <> nil) then
-      begin
-        //FChildForm.ApplyPopupFeatures;
-        //FChildForm.Show;
-        PostMessage(FChildForm.Handle, CEF_SHOWCHILD, 0, 0);
-      end;
+      PostMessage(FChildForm.Handle, CEF_SHOWCHILD, 0, 0);
 
-    FChildForm := TChildForm.Create(self);
+    CreateChildForm;
   finally
     FCriticalSection.Release;
   end;
@@ -355,7 +325,8 @@ end;
 
 procedure TMainForm.ChildDestroyedMsg(var aMessage : TMessage);
 begin
-  if FClosingChildren and (PopupChildCount = 0) then Close;
+  if FClosingChildren and (PopupChildCount = 0) then
+    Close;
 end;
 
 procedure TMainForm.GoBtnClick(Sender: TObject);

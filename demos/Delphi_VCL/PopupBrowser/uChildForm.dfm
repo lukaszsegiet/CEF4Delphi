@@ -10,7 +10,6 @@ object ChildForm: TChildForm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnClose = FormClose
@@ -19,7 +18,6 @@ object ChildForm: TChildForm
   OnDestroy = FormDestroy
   OnHide = FormHide
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object Panel1: TBufferPanel
     Left = 0
@@ -42,8 +40,11 @@ object ChildForm: TChildForm
     OnMouseLeave = Panel1MouseLeave
   end
   object Chromium1: TChromium
+    OnCanFocus = Chromium1CanFocus
     OnTitleChange = Chromium1TitleChange
     OnTooltip = Chromium1Tooltip
+    OnCursorChange = Chromium1CursorChange
+    OnBeforePopup = Chromium1BeforePopup
     OnBeforeClose = Chromium1BeforeClose
     OnGetViewRect = Chromium1GetViewRect
     OnGetScreenPoint = Chromium1GetScreenPoint
@@ -51,7 +52,6 @@ object ChildForm: TChildForm
     OnPopupShow = Chromium1PopupShow
     OnPopupSize = Chromium1PopupSize
     OnPaint = Chromium1Paint
-    OnCursorChange = Chromium1CursorChange
     Left = 24
     Top = 56
   end

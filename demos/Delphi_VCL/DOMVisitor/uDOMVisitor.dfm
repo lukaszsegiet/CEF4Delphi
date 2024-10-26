@@ -10,12 +10,11 @@ object DOMVisitorFrm: TDOMVisitorFrm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object CEFWindowParent1: TCEFWindowParent
     Left = 0
@@ -47,7 +46,7 @@ object DOMVisitorFrm: TDOMVisitorFrm
       Height = 20
       Align = alClient
       TabOrder = 0
-      Text = 'https://www.google.com'
+      Text = 'https://www.briskbard.com/forum/'
       ExplicitHeight = 21
     end
     object Panel1: TPanel
@@ -96,10 +95,11 @@ object DOMVisitorFrm: TDOMVisitorFrm
     OnProcessMessageReceived = Chromium1ProcessMessageReceived
     OnBeforeContextMenu = Chromium1BeforeContextMenu
     OnContextMenuCommand = Chromium1ContextMenuCommand
+    OnConsoleMessage = Chromium1ConsoleMessage
     OnBeforePopup = Chromium1BeforePopup
     OnAfterCreated = Chromium1AfterCreated
     OnBeforeClose = Chromium1BeforeClose
-    OnClose = Chromium1Close
+    OnDevToolsMethodResult = Chromium1DevToolsMethodResult
     Left = 16
     Top = 40
   end

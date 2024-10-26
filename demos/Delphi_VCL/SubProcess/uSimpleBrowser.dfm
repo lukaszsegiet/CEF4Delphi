@@ -1,7 +1,7 @@
 object Form1: TForm1
   Left = 0
   Top = 0
-  Caption = 'Simple Browser'
+  Caption = 'Simple Browser - Initializing browser. Please wait...'
   ClientHeight = 624
   ClientWidth = 1038
   Color = clBtnFace
@@ -10,11 +10,10 @@ object Form1: TForm1
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
+  OnActivate = FormActivate
   OnCloseQuery = FormCloseQuery
-  OnShow = FormShow
-  PixelsPerInch = 96
+  OnCreate = FormCreate
   TextHeight = 13
   object ChromiumWindow1: TChromiumWindow
     Left = 0
@@ -24,7 +23,6 @@ object Form1: TForm1
     Align = alClient
     TabOrder = 0
     OnClose = ChromiumWindow1Close
-    OnBeforeClose = ChromiumWindow1BeforeClose
     OnAfterCreated = ChromiumWindow1AfterCreated
   end
   object AddressPnl: TPanel

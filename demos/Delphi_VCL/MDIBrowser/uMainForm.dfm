@@ -12,11 +12,9 @@ object MainForm: TMainForm
   Font.Name = 'Default'
   Font.Style = []
   FormStyle = fsMDIForm
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object ButtonPnl: TPanel
     Left = 0
@@ -78,6 +76,14 @@ object MainForm: TMainForm
       Height = 17
       Caption = 'Create a new request context for new browsers'
       TabOrder = 0
+    end
+    object IncognitoChk: TCheckBox
+      Left = 568
+      Top = 8
+      Width = 305
+      Height = 17
+      Caption = 'Use incognito mode for child windows'
+      TabOrder = 1
     end
   end
 end

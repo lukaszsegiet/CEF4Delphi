@@ -1,43 +1,6 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright ?2018 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uResponseFilterBrowser;
 
-{$I cef.inc}
+{$I ..\..\..\source\cef.inc}
 
 interface
 
@@ -51,7 +14,7 @@ uses
   Controls, Forms, Dialogs, StdCtrls, ExtCtrls, SyncObjs, ComCtrls, pngimage,
   {$ENDIF}
   uCEFChromium, uCEFWindowParent, uCEFInterfaces, uCEFConstants, uCEFTypes, uCEFResponseFilter,
-  uCEFWinControl;
+  uCEFWinControl, uCEFChromiumCore;
 
 const
   STREAM_COPY_COMPLETE    = WM_APP + $B00;
@@ -72,6 +35,7 @@ type
     StatusBar1: TStatusBar;
     CopyScriptBtn: TRadioButton;
     ReplaceLogoBtn: TRadioButton;
+    ReplaceTextBtn: TRadioButton;
 
     procedure Chromium1AfterCreated(Sender: TObject; const browser: ICefBrowser);
     procedure Chromium1GetResourceResponseFilter(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const request: ICefRequest; const response: ICefResponse; out Result: ICefResponseFilter);
@@ -79,8 +43,8 @@ type
     procedure Chromium1BeforePopup(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const targetUrl, targetFrameName: ustring; targetDisposition: TCefWindowOpenDisposition; userGesture: Boolean; const popupFeatures: TCefPopupFeatures; var windowInfo: TCefWindowInfo; var client: ICefClient; var settings: TCefBrowserSettings; var extra_info: ICefDictionaryValue; var noJavascriptAccess: Boolean; var Result: Boolean);
     procedure Chromium1Close(Sender: TObject; const browser: ICefBrowser; var aAction : TCefCloseBrowserAction);
     procedure Chromium1BeforeClose(Sender: TObject; const browser: ICefBrowser);
-    procedure Chromium1LoadStart(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; transitionType: Cardinal);
-    procedure Chromium1BeforeResourceLoad(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const request: ICefRequest; const callback: ICefRequestCallback; out Result: TCefReturnValue);
+    procedure Chromium1LoadStart(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; transitionType: TCefTransitionType);
+    procedure Chromium1BeforeResourceLoad(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const request: ICefRequest; const callback: ICefCallback; out Result: TCefReturnValue);
     procedure Chromium1ResourceResponse(Sender: TObject; const browser: ICefBrowser; const frame: ICefFrame; const request: ICefRequest; const response: ICefResponse; out Result: Boolean);
 
     procedure FormShow(Sender: TObject);
@@ -118,6 +82,7 @@ type
 
     procedure CopyScript(data_in: Pointer; data_in_size: NativeUInt; var data_in_read: NativeUInt; data_out: Pointer; data_out_size : NativeUInt; var data_out_written: NativeUInt; var aResult : TCefResponseFilterStatus);
     procedure ReplaceLogo(data_in: Pointer; data_in_size: NativeUInt; var data_in_read: NativeUInt; data_out: Pointer; data_out_size : NativeUInt; var data_out_written: NativeUInt; var aResult : TCefResponseFilterStatus);
+    procedure ReplaceBufferText(data_in: Pointer; data_in_size: NativeUInt; var data_in_read: NativeUInt; data_out: Pointer; data_out_size : NativeUInt; var data_out_written: NativeUInt; var aResult : TCefResponseFilterStatus);
     procedure UpdateRscEncoding(const aMimeType, aContentType : string);
     function  IsMyResource(const aRequest : ICefRequest) : boolean;
     procedure CheckResponseHeaders(const response  : ICefResponse);
@@ -149,18 +114,17 @@ uses
 // JavaScript file in briskbard.com into a TMemoryStream. The stream
 // is shown in the TMemo when it's finished.
 
-// For more information read the CEF3 code comments here :
+// For more information read the CEF code comments here :
 //      https://github.com/chromiumembedded/cef/blob/master/include/capi/cef_response_filter_capi.h
 
 // Destruction steps
 // =================
 // 1. FormCloseQuery sets CanClose to FALSE calls TChromium.CloseBrowser
 //    which triggers the TChromium.OnClose event.
-// 2. TChromium.OnClose sends a CEFBROWSER_DESTROY message to destroy
+// 2. TChromium.OnClose sends a CEF_DESTROY message to destroy
 //    CEFWindowParent1 in the main thread, which triggers the
 //    TChromium.OnBeforeClose event.
-// 3. TChromium.OnBeforeClose sets FCanClose := True and sends WM_CLOSE
-//    to the form.
+// 3. TChromium.OnBeforeClose sets FCanClose := True and sends WM_CLOSE to the form.
 
 // TCustomResponseFilter.OnFilter event might be called multiple times
 // when the resource is too big. In that case the resource will be split into
@@ -192,9 +156,11 @@ uses
 procedure CreateGlobalCEFApp;
 begin
   GlobalCEFApp                  := TCefApplication.Create;
-  GlobalCEFApp.DisableFeatures  := 'NetworkService,OutOfBlinkCors';
   GlobalCEFApp.LogFile          := 'cef.log';
   GlobalCEFApp.LogSeverity      := LOGSEVERITY_VERBOSE;
+  // Workaround for CEF issue #3345
+  // https://bitbucket.org/chromiumembedded/cef/issues/3345/getresourceresponsefilter-not-called-for
+  GlobalCEFApp.DisableFeatures  := 'CombineResponseBody';
 end;
 
 procedure TResponseFilterBrowserFrm.Filter_OnFilter(    Sender           : TObject;
@@ -209,7 +175,11 @@ begin
   if CopyScriptBtn.Checked then
     CopyScript(data_in, data_in_size, data_in_read, data_out, data_out_size, data_out_written, aResult)
    else
-    ReplaceLogo(data_in, data_in_size, data_in_read, data_out, data_out_size, data_out_written, aResult);
+    if ReplaceLogoBtn.Checked then
+      ReplaceLogo(data_in, data_in_size, data_in_read, data_out, data_out_size, data_out_written, aResult)
+     else
+      if ReplaceTextBtn.Checked then
+        ReplaceBufferText(data_in, data_in_size, data_in_read, data_out, data_out_size, data_out_written, aResult);
 end;
 
 procedure TResponseFilterBrowserFrm.CopyScript(    data_in          : Pointer;
@@ -334,6 +304,82 @@ begin
   end;
 end;
 
+procedure TResponseFilterBrowserFrm.ReplaceBufferText(    data_in          : Pointer;
+                                                          data_in_size     : NativeUInt;
+                                                      var data_in_read     : NativeUInt;
+                                                          data_out         : Pointer;
+                                                          data_out_size    : NativeUInt;
+                                                      var data_out_written : NativeUInt;
+                                                      var aResult          : TCefResponseFilterStatus);
+const
+  // To keep this demo as simple as possible we replace strings with the same length
+  REPLACE_TEXT : AnsiString = 'Save time and effort with BriskBard';
+  NEW_TEXT     : AnsiString = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+var
+  TempAnsiString : AnsiString;
+  TempChar : PAnsiChar;
+  i : integer;
+begin
+  try
+    try
+      FStreamCS.Acquire;
+
+      if FFilterInit then
+        begin
+          // This event will be called repeatedly until the input buffer has been fully read.
+          // When there's no more data then data_in is nil and you can show the stream contents.
+
+          if (data_in = nil) then
+            begin
+              // This is the last filter call
+              data_in_read     := 0;  // data_in_size is 0 too in this situation
+              data_out_written := 0;
+              aResult          := RESPONSE_FILTER_DONE;
+              FRscCompleted    := True;
+            end
+           else
+            if (data_out <> nil) then
+              begin
+                // The filter may call this function several times because it splits the resource contents in several chunks.
+                // If you replace a long string it could be part of 2 or more chunks and this demo would not find it.
+
+                aResult          := RESPONSE_FILTER_DONE;
+                data_out_written := min(data_in_size, data_out_size);
+                data_in_read     := data_out_written;
+
+                if (data_out_written > 0) then
+                  begin
+                    // We assume that this is a UTF8 or Ansi string.
+                    // We use deprecated ansi string functions to search and replace strings but we should
+                    // be decoding the buffer contents to a normal string, replace the text, encode the
+                    // new string and copy it to the output buffer (data_out).
+
+                    SetLength(TempAnsiString, data_out_written);
+                    Move(data_in^, TempAnsiString[1], data_out_written);
+                    TempChar := AnsiStrPos(PAnsiChar(TempAnsiString), PAnsiChar(REPLACE_TEXT));
+
+                    if (TempChar <> nil) then
+                      begin
+                        i := (IntPtr(TempChar) - IntPtr(PAnsiChar(TempAnsiString))) div SizeOf(AnsiChar) + 1;
+                        TempAnsiString := copy(TempAnsiString, 1, pred(i)) + NEW_TEXT + copy(TempAnsiString, i + length(REPLACE_TEXT), data_out_written);
+                      end;
+
+                    Move(TempAnsiString[1], data_out^, data_out_written);
+                  end;
+              end;
+        end;
+    except
+      on e : exception do
+        begin
+          aResult := RESPONSE_FILTER_ERROR;
+          if CustomExceptionHandler('TResponseFilterBrowserFrm.ReplaceBufferText', e) then raise;
+        end;
+    end;
+  finally
+    FStreamCS.Release;
+  end;
+end;
+
 function TResponseFilterBrowserFrm.IsMyResource(const aRequest : ICefRequest) : boolean;
 var
   TempName : string;
@@ -348,8 +394,13 @@ begin
         Result := (pos(TempName, aRequest.URL) > 0);
     end
    else
-    Result := (aRequest <> nil) and
-              (CompareText(aRequest.URL, 'https://www.briskbard.com/images/logo.png') = 0);
+    if ReplaceLogoBtn.Checked then
+      Result := (aRequest <> nil) and
+                (CompareText(aRequest.URL, 'https://www.briskbard.com/images/logo.png') = 0)
+     else
+      if ReplaceTextBtn.Checked then
+        Result := (aRequest <> nil) and
+                  (CompareText(aRequest.URL, 'https://www.briskbard.com/index.php?lang=en') = 0);
 end;
 
 procedure TResponseFilterBrowserFrm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -380,6 +431,8 @@ begin
 
   // This event will receive the data
   TCustomResponseFilter(FFilter).OnFilter := Filter_OnFilter;
+
+  Chromium1.RuntimeStyle := CEF_RUNTIME_STYLE_ALLOY;
 end;
 
 procedure TResponseFilterBrowserFrm.FormDestroy(Sender: TObject);
@@ -424,14 +477,14 @@ procedure TResponseFilterBrowserFrm.Chromium1BeforePopup(      Sender           
                                                          var   Result             : Boolean);
 begin
   // For simplicity, this demo blocks all popup windows and new tabs
-  Result := (targetDisposition in [WOD_NEW_FOREGROUND_TAB, WOD_NEW_BACKGROUND_TAB, WOD_NEW_POPUP, WOD_NEW_WINDOW]);
+  Result := (targetDisposition in [CEF_WOD_NEW_FOREGROUND_TAB, CEF_WOD_NEW_BACKGROUND_TAB, CEF_WOD_NEW_POPUP, CEF_WOD_NEW_WINDOW]);
 end;
 
 procedure TResponseFilterBrowserFrm.Chromium1BeforeResourceLoad(      Sender   : TObject;
                                                                 const browser  : ICefBrowser;
                                                                 const frame    : ICefFrame;
                                                                 const request  : ICefRequest;
-                                                                const callback : ICefRequestCallback;
+                                                                const callback : ICefCallback;
                                                                 out   Result   : TCefReturnValue);
 var
   TempOldMap, TempNewMap : ICefStringMultimap;
@@ -492,7 +545,7 @@ begin
       FFilterInit := True;
 
       CheckResponseHeaders(response);
-      UpdateRscEncoding(response.MimeType, response.GetHeader('Content-Type'));
+      UpdateRscEncoding(response.MimeType, response.GetHeaderByName('Content-Type'));
     end
    else
     Result := nil;
@@ -501,13 +554,13 @@ end;
 procedure TResponseFilterBrowserFrm.Chromium1LoadStart(      Sender         : TObject;
                                                        const browser        : ICefBrowser;
                                                        const frame          : ICefFrame;
-                                                             transitionType : Cardinal);
+                                                             transitionType : TCefTransitionType);
 const
   IMAGE_FILENAME = 'jupiter.png';
 var
   TempPath : string;
 begin
-  if frame.IsMain then
+  if (frame <> nil) and frame.IsValid and frame.IsMain then
     try
       try
         FStreamCS.Acquire;
@@ -534,7 +587,8 @@ begin
   FRscMimeType := aMimeType;
 
   {$IFDEF DELPHI15_UP}
-  if (aMimeType = 'application/json') or
+  if (aMimeType = 'text/html')        or
+     (aMimeType = 'application/json') or
      (aMimeType = 'text/json')        or
      (aMimeType = 'text/javascript')  or
      (aMimeType = 'application/javascript') then
@@ -550,7 +604,7 @@ begin
   try
     FStreamCS.Acquire;
 
-    TempContentEncoding := trim(lowercase(response.GetHeader('Content-Encoding')));
+    TempContentEncoding := trim(lowercase(response.GetHeaderByName('Content-Encoding')));
 
     if (length(TempContentEncoding) > 0) and (TempContentEncoding <> 'identity') then
       begin
@@ -561,7 +615,7 @@ begin
       end
      else
       begin
-        TempContentLength := trim(response.GetHeader('Content-Length'));
+        TempContentLength := trim(response.GetHeaderByName('Content-Length'));
 
         if (length(TempContentLength) > 0) and
            TryStrToInt(TempContentLength, TempLen) and
@@ -594,7 +648,7 @@ begin
     // we still can use this event to know when the resource is complete
     if IsMyResource(request) and CopyScriptBtn.Checked then
       begin
-        UpdateRscEncoding(response.MimeType, response.GetHeader('Content-Type'));
+        UpdateRscEncoding(response.MimeType, response.GetHeaderByName('Content-Type'));
 
         // Only send the message if this event is triggered before we have a OnFilter event with data_in = nil
         if not(FRscCompleted) then
@@ -617,7 +671,7 @@ begin
   if not(FRscCompleted) and (response <> nil) and IsMyResource(request) then
     begin
       CheckResponseHeaders(response);
-      UpdateRscEncoding(response.MimeType, response.GetHeader('Content-Type'));
+      UpdateRscEncoding(response.MimeType, response.GetHeaderByName('Content-Type'));
     end;
 end;
 
@@ -636,8 +690,8 @@ end;
 // This procedure handles the stream contents after it's fully downloaded
 procedure TResponseFilterBrowserFrm.StreamCopyCompleteMsg(var aMessage : TMessage);
 var
-  LAS: AnsiString;
-  LS: String;
+  TempAnsiString : AnsiString;
+  TempString     : String;
 begin
   try
     FStreamCS.Acquire;
@@ -657,17 +711,17 @@ begin
               begin
                 StatusBar1.Panels[1].Text := 'Stream size : ' + inttostr(FStream.Size);
 
-                SetLength(LAS, FStream.Size);
-                FStream.Read(LAS[1], FStream.Size);
+                SetLength(TempAnsiString, FStream.Size);
+                FStream.Read(TempAnsiString[1], FStream.Size);
 
                 if (FRscEncoding = TEncoding.UTF8) then
-                  LS := UTF8Decode(LAS) // UTF8 Here
+                  TempString := UTF8Decode(TempAnsiString) // UTF8 Here
                  else
-                  LS := string(LAS); // Others encoding text
+                  TempString := string(TempAnsiString); // Others encoding text
 
-                Memo1.Lines.Add(LS);
+                Memo1.Lines.Add(TempString);
 
-                StatusBar1.Panels[2].Text := 'Decoded size : ' + inttostr(length(LS));
+                StatusBar1.Panels[2].Text := 'Decoded size : ' + inttostr(length(TempString));
               end
              else
               Memo1.Lines.LoadFromStream(FStream); // Image or others
@@ -682,7 +736,8 @@ begin
           Memo1.Lines.Clear;
       end
      else
-      StatusBar1.Panels[1].Text := 'Stream size : ' + inttostr(FStream.Size);
+      if ReplaceLogoBtn.Checked then
+        StatusBar1.Panels[1].Text := 'Stream size : ' + inttostr(FStream.Size);
   finally
     FStreamCS.Release;
   end;

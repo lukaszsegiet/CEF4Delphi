@@ -1,55 +1,18 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uCEFResourceBundleHandler;
 
 {$IFDEF FPC}
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$IFNDEF CPUX64}{$ALIGN ON}{$ENDIF}
-{$MINENUMSIZE 4}
-
 {$I cef.inc}
+
+{$IFNDEF TARGET_64BITS}{$ALIGN ON}{$ENDIF}
+{$MINENUMSIZE 4}
 
 interface
 
 uses
-  uCEFBaseRefCounted, uCEFInterfaces, uCEFTypes, uCEFApplication;
+  uCEFBaseRefCounted, uCEFInterfaces, uCEFTypes, uCEFApplicationCore;
 
 type
   TCefResourceBundleHandlerOwn = class(TCefBaseRefCountedOwn, ICefResourceBundleHandler)
@@ -58,20 +21,24 @@ type
       function GetDataResource(resourceId: Integer; var data: Pointer; var dataSize: NativeUInt): Boolean; virtual; abstract;
       function GetDataResourceForScale(resourceId: Integer; scaleFactor: TCefScaleFactor; var data: Pointer; var dataSize: NativeUInt): Boolean; virtual; abstract;
 
+      procedure RemoveReferences; virtual; abstract;
+
     public
       constructor Create; virtual;
   end;
 
   TCefCustomResourceBundleHandler = class(TCefResourceBundleHandlerOwn)
     protected
-      FCefApp : TCefApplication;
+      FCefApp : TCefApplicationCore;
 
       function GetLocalizedString(stringid: Integer; var stringVal: ustring): Boolean; override;
       function GetDataResource(resourceId: Integer; var data: Pointer; var dataSize: NativeUInt): Boolean; override;
       function GetDataResourceForScale(resourceId: Integer; scaleFactor: TCefScaleFactor; var data: Pointer; var dataSize: NativeUInt): Boolean; override;
 
+      procedure RemoveReferences; override;
+
     public
-      constructor Create(const aCefApp : TCefApplication); reintroduce;
+      constructor Create(const aCefApp : TCefApplicationCore); reintroduce;
       destructor  Destroy; override;
   end;
 
@@ -95,12 +62,17 @@ begin
   Result     := Ord(False);
   TempObject := CefGetObject(self);
 
-  if (TempObject <> nil) and (TempObject is TCefResourceBundleHandlerOwn) then
+  if (TempObject <> nil) and
+     (TempObject is TCefResourceBundleHandlerOwn) then
     begin
       TempString := '';
       Result     := Ord(TCefResourceBundleHandlerOwn(TempObject).GetLocalizedString(string_id, TempString));
 
-      if (Result <> 0) then string_val^ := CefString(TempString);
+      if (string_val <> nil) then
+        begin
+          CefStringFree(string_val);
+          string_val^ := CefStringAlloc(TempString);
+        end;
     end;
 end;
 
@@ -114,7 +86,8 @@ begin
   Result     := Ord(False);
   TempObject := CefGetObject(self);
 
-  if (TempObject <> nil) and (TempObject is TCefResourceBundleHandlerOwn) then
+  if (TempObject <> nil) and
+     (TempObject is TCefResourceBundleHandlerOwn) then
     Result := Ord(TCefResourceBundleHandlerOwn(TempObject).GetDataResource(resource_id, data, data_size));
 end;
 
@@ -129,7 +102,8 @@ begin
   Result     := Ord(False);
   TempObject := CefGetObject(self);
 
-  if (TempObject <> nil) and (TempObject is TCefResourceBundleHandlerOwn) then
+  if (TempObject <> nil) and
+     (TempObject is TCefResourceBundleHandlerOwn) then
     Result := Ord(TCefResourceBundleHandlerOwn(TempObject).GetDataResourceForScale(resource_id, scale_factor, data, data_size));
 end;
 
@@ -149,7 +123,7 @@ end;
 // TCefCustomResourceBundleHandler
 
 
-constructor TCefCustomResourceBundleHandler.Create(const aCefApp : TCefApplication);
+constructor TCefCustomResourceBundleHandler.Create(const aCefApp : TCefApplicationCore);
 begin
   inherited Create;
 
@@ -158,9 +132,14 @@ end;
 
 destructor TCefCustomResourceBundleHandler.Destroy;
 begin
-  FCefApp := nil;
+  RemoveReferences;
 
   inherited Destroy;
+end;
+
+procedure TCefCustomResourceBundleHandler.RemoveReferences;
+begin
+  FCefApp := nil;
 end;
 
 function TCefCustomResourceBundleHandler.GetLocalizedString(    stringid  : Integer;
@@ -169,7 +148,8 @@ begin
   Result := False;
 
   try
-    Result := (FCefApp <> nil) and FCefApp.Internal_GetLocalizedString(stringid, stringVal);
+    if (FCefApp <> nil) then
+      Result := IApplicationCoreEvents(FCefApp).doGetLocalizedString(stringid, stringVal);
   except
     on e : exception do
       if CustomExceptionHandler('TCefCustomResourceBundleHandler.GetLocalizedString', e) then raise;
@@ -183,7 +163,8 @@ begin
   Result := False;
 
   try
-    Result := (FCefApp <> nil) and FCefApp.Internal_GetDataResource(resourceId, data, dataSize);
+    if (FCefApp <> nil) then
+      Result := IApplicationCoreEvents(FCefApp).doGetDataResource(resourceId, data, dataSize);
   except
     on e : exception do
       if CustomExceptionHandler('TCefCustomResourceBundleHandler.GetDataResource', e) then raise;
@@ -198,7 +179,8 @@ begin
   Result := False;
 
   try
-    Result := (FCefApp <> nil) and FCefApp.Internal_GetDataResourceForScale(resourceId, scaleFactor, data, dataSize);
+    if (FCefApp <> nil) then
+      Result := IApplicationCoreEvents(FCefApp).doGetDataResourceForScale(resourceId, scaleFactor, data, dataSize);
   except
     on e : exception do
       if CustomExceptionHandler('TCefCustomResourceBundleHandler.GetDataResourceForScale', e) then raise;

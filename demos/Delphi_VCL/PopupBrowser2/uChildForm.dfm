@@ -10,13 +10,11 @@ object ChildForm: TChildForm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnClose = FormClose
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  PixelsPerInch = 96
   TextHeight = 13
   object CEFWindowParent1: TCEFWindowParent
     Left = 0
@@ -30,7 +28,6 @@ object ChildForm: TChildForm
     OnTitleChange = Chromium1TitleChange
     OnBeforePopup = Chromium1BeforePopup
     OnBeforeClose = Chromium1BeforeClose
-    OnClose = Chromium1Close
     Left = 24
     Top = 56
   end

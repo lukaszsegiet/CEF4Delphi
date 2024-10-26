@@ -1,43 +1,6 @@
-// ************************************************************************
-// ***************************** CEF4Delphi *******************************
-// ************************************************************************
-//
-// CEF4Delphi is based on DCEF3 which uses CEF3 to embed a chromium-based
-// browser in Delphi applications.
-//
-// The original license of DCEF3 still applies to CEF4Delphi.
-//
-// For more information about CEF4Delphi visit :
-//         https://www.briskbard.com/index.php?lang=en&pageid=cef
-//
-//        Copyright © 2019 Salvador Diaz Fau. All rights reserved.
-//
-// ************************************************************************
-// ************ vvvv Original license and comments below vvvv *************
-// ************************************************************************
-(*
- *                       Delphi Chromium Embedded 3
- *
- * Usage allowed under the restrictions of the Lesser GNU General Public License
- * or alternatively the restrictions of the Mozilla Public License 1.1
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
- * the specific language governing rights and limitations under the License.
- *
- * Unit owner : Henri Gourvest <hgourvest@gmail.com>
- * Web site   : http://www.progdigy.com
- * Repository : http://code.google.com/p/delphichromiumembedded/
- * Group      : http://groups.google.com/group/delphichromiumembedded
- *
- * Embarcadero Technologies, Inc is not permitted to use or redistribute
- * this source code without explicit permission.
- *
- *)
-
 unit uSimpleServer;
 
-{$I cef.inc}
+{$I ..\..\..\source\cef.inc}
 
 interface
 
@@ -64,31 +27,23 @@ type
     BacklogEdt: TSpinEdit;
     StartBtn: TButton;
     StopBtn: TButton;
+
     procedure StartBtnClick(Sender: TObject);
-    procedure AddressEdtChange(Sender: TObject);
-    procedure CEFServerComponent1ServerCreated(Sender: TObject;
-      const server: ICefServer);
-    procedure CEFServerComponent1ServerDestroyed(Sender: TObject;
-      const server: ICefServer);
-    procedure CEFServerComponent1ClientConnected(Sender: TObject;
-      const server: ICefServer; connection_id: Integer);
-    procedure CEFServerComponent1ClientDisconnected(Sender: TObject;
-      const server: ICefServer; connection_id: Integer);
     procedure StopBtnClick(Sender: TObject);
+    procedure AddressEdtChange(Sender: TObject);
+
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormCreate(Sender: TObject);
-    procedure CEFServerComponent1HttpRequest(Sender: TObject;
-      const server: ICefServer; connection_id: Integer;
-      const client_address: ustring; const request: ICefRequest);
-    procedure CEFServerComponent1WebSocketConnected(Sender: TObject;
-      const server: ICefServer; connection_id: Integer);
-    procedure CEFServerComponent1WebSocketMessage(Sender: TObject;
-      const server: ICefServer; connection_id: Integer;
-      const data: Pointer; data_size: NativeUInt);
-    procedure CEFServerComponent1WebSocketRequest(Sender: TObject;
-      const server: ICefServer; connection_id: Integer;
-      const client_address: ustring; const request: ICefRequest;
-      const callback: ICefCallback);
+
+    procedure CEFServerComponent1ServerCreated(Sender: TObject; const server: ICefServer);
+    procedure CEFServerComponent1ServerDestroyed(Sender: TObject; const server: ICefServer);
+    procedure CEFServerComponent1ClientConnected(Sender: TObject; const server: ICefServer; connection_id: Integer);
+    procedure CEFServerComponent1ClientDisconnected(Sender: TObject; const server: ICefServer; connection_id: Integer);
+    procedure CEFServerComponent1HttpRequest(Sender: TObject; const server: ICefServer; connection_id: Integer; const client_address: ustring; const request: ICefRequest);
+    procedure CEFServerComponent1WebSocketConnected(Sender: TObject; const server: ICefServer; connection_id: Integer);
+    procedure CEFServerComponent1WebSocketMessage(Sender: TObject; const server: ICefServer; connection_id: Integer; const data: Pointer; data_size: NativeUInt);
+    procedure CEFServerComponent1WebSocketRequest(Sender: TObject; const server: ICefServer; connection_id: Integer; const client_address: ustring; const request: ICefRequest; const callback: ICefCallback);
+
   protected
     FClosing : boolean;
 
@@ -157,7 +112,7 @@ procedure TSimpleServerFrm.CEFServerComponent1HttpRequest(Sender: TObject;
   const server: ICefServer; connection_id: Integer;
   const client_address: ustring; const request: ICefRequest);
 var
-  TempData : string;
+  TempData : AnsiString;
   TempParts : TUrlParts;
 begin
   ConnectionLogMem.Lines.Add('---------------------------------------');
@@ -170,8 +125,8 @@ begin
     begin
       if (TempParts.path = '') or (TempParts.path = '/') then
         begin
-          TempData := 'Hello world from Simple Server';
-          CEFServerComponent1.SendHttp200response(connection_id, 'text/html', @TempData[1], length(TempData) * SizeOf(char));
+          TempData := UTF8Encode('<html><body><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red dot" />&nbsp;HTML response from SimpleServer.</body></html>');
+          CEFServerComponent1.SendHttp200response(connection_id, 'text/html; charset=utf-8', @TempData[1], length(TempData) * SizeOf(AnsiChar));
         end
        else
         CEFServerComponent1.SendHttp404response(connection_id);
@@ -195,37 +150,55 @@ end;
 
 procedure TSimpleServerFrm.ShowPostDataInfo(const aPostData : ICefPostData);
 var
-  i, j : integer;
+  i : integer;
   TempLen : NativeUInt;
-  TempList : IInterfaceList;
-  TempElement : ICefPostDataElement;
   TempBytes : TBytes;
+  TempArray : TCefPostDataElementArray;
 begin
-  if (aPostData = nil) then exit;
+  TempArray := nil;
 
-  i := 0;
-  j := aPostData.GetCount;
-
-  TempList := aPostData.GetElements(j);
-
-  while (i < j) do
-    begin
-      TempElement := TempList.Items[i] as ICefPostDataElement;
-
-      if (TempElement.GetBytesCount > 0) then
+  try
+    try
+      if (aPostData <> nil) and (aPostData.GetElementCount > 0) then
         begin
-          SetLength(TempBytes, TempElement.GetBytesCount);
-          TempLen := TempElement.GetBytes(TempElement.GetBytesCount, @TempBytes[0]);
+          aPostData.GetElements(aPostData.GetElementCount, TempArray);
 
-          if (TempLen > 0) then
+          i := 0;
+          while (i < length(TempArray)) do
             begin
-              ConnectionLogMem.Lines.Add('Post contents length : ' + inttostr(TempLen));
-              ConnectionLogMem.Lines.Add('Post contents sample : ' + BufferToString(TempBytes));
+              if (TempArray[i].GetBytesCount > 0) then
+                begin
+                  SetLength(TempBytes, TempArray[i].GetBytesCount);
+                  TempLen := TempArray[i].GetBytes(TempArray[i].GetBytesCount, @TempBytes[0]);
+
+                  if (TempLen > 0) then
+                    begin
+                      ConnectionLogMem.Lines.Add('Post contents length : ' + inttostr(TempLen));
+                      ConnectionLogMem.Lines.Add('Post contents sample : ' + BufferToString(TempBytes));
+                    end;
+                end;
+
+              inc(i);
+            end;
+
+          i := 0;
+          while (i < length(TempArray)) do
+            begin
+              TempArray[i] := nil;
+              inc(i);
             end;
         end;
-
-      inc(i);
+    except
+      on e : exception do
+        if CustomExceptionHandler('TSimpleServerFrm.ShowPostDataInfo', e) then raise;
     end;
+  finally
+    if (TempArray <> nil) then
+      begin
+        Finalize(TempArray);
+        TempArray := nil;
+      end;
+  end;
 end;
 
 function TSimpleServerFrm.BufferToString(const aBuffer : TBytes) : string;
